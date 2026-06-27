@@ -663,7 +663,10 @@ const DEMO = {
     {id:"sl2", date:"2026-06-03 14:00", type:"ນຳເຂົ້າ", product:"ເມົາສ໌ໄຮ້ສາຍ", qty:30, by:"admin", note:"ຈັດຊື້ PO-002"},
     {id:"sl3", date:"2026-06-06 09:14", type:"ນຳອອກ", product:"ຄອມ", qty:3, by:"admin", note:"ຂາຍ INV-2406-001"},
   ],
-  repair:[], pawn:[], produce:[], returns:[],
+  repair:[
+    {id:"r1", runno:"RP-00101", name:"ທ້າວ ສຸກ ວົງສະຫວັນ", phone:"2055500111", address:"ບ້ານ ໂພນສະຫວ່າງ, ເມືອງ ໄຊເສດຖາ", product:"ໂທລະສັບມືຖື", brand:"Samsung", model:"Galaxy A54", color:"ດຳ", sn:"356123459988", condition:"ມີຮອຍຂູດດ້ານຫຼັງ", symptom:"ຈໍແຕກ ສຳພັດບໍ່ໄດ້", accessories:"ສາຍສາກ, ເຄສ", cost:350000, duedate:"2026-07-04", status:"ກຳລັງສ້ອມ", recorded:"2026-06-27 09:00"},
+    {id:"r2", runno:"RP-00102", name:"ນາງ ດາວ ສີວິໄລ", phone:"2099900222", address:"ບ້ານ ສີໄຄ, ເມືອງ ສີໂຄດຕະບອງ", product:"ຄອມພິວເຕີໂນດບຸກ", brand:"Dell", model:"Inspiron 15", color:"ເງິນ", sn:"", condition:"ປົກກະຕິ", symptom:"ເປີດບໍ່ຕິດ ໄຟບໍ່ເຂົ້າ", accessories:"ສາຍຊາດ", cost:200000, duedate:"2026-07-02", status:"ມາໃໝ່", recorded:"2026-06-27 10:30"},
+  ], pawn:[], produce:[], returns:[],
   units:[ {id:"un1",name:"ໜ່ວຍ",note:""},{id:"un2",name:"ຊຸດ",note:""},{id:"un3",name:"ເສັ້ນ",note:""},{id:"un4",name:"ກ່ອງ",note:""} ],
   prodcats:[ {id:"pc1",name:"ຄອມພິວເຕີ",note:""},{id:"pc2",name:"ອຸປະກອນ",note:""},{id:"pc3",name:"ຈໍພາບ",note:""},{id:"pc4",name:"ສຽງ",note:""} ],
   sizes:[ {id:"sz1",name:"S",note:""},{id:"sz2",name:"M",note:""},{id:"sz3",name:"L",note:""} ],
@@ -1224,6 +1227,28 @@ const App = {
           </div>
         </div>
       </div>`;
+    },
+
+    async repair(c){
+      const data=await Store.list('repair'); App.state.data.repair=data;
+      const STA=['ມາໃໝ່','ກຳລັງສ້ອມ','ສ້ອມສຳເລັດ','ຮັບເຄື່ອງແລ້ວ','ຍົກເລີກ'];
+      const pillOf=st=>({'ມາໃໝ່':'pill-blue','ກຳລັງສ້ອມ':'pill-amber','ສ້ອມສຳເລັດ':'pill-green','ຮັບເຄື່ອງແລ້ວ':'pill-green','ຍົກເລີກ':'pill-red'}[st]||'pill-blue');
+      c.innerHTML=tableView({
+        title:'ລາຍການຮັບສ້ອມແປງ', icon:'wrench', count:data.length+' ລາຍການ', search:true,
+        addLabel:'ເພີ່ມລາຍການສ້ອມແປງ', addFn:"App.editRepair()",
+        extra:`<button class="btn lo" onclick="App.exportCSV('repair')">${I.download} Excel</button>`,
+        cols:['ໃບຮັບ','ລູກຄ້າ','ສິນຄ້າ','ອາການເສຍ','ຄ່າສ້ອມ','ວັນນັດຮັບ','ສະຖານະ',''],
+        rows:data, empty:'ຍັງບໍ່ມີລາຍການສ້ອມແປງ',
+        render:r=>`<tr>
+          <td class="num" style="font-weight:700">${esc(r.runno||r.id)}</td>
+          <td class="lo"><div style="font-weight:600">${esc(r.name)}</div><div class="muted" style="font-size:12px">${esc(r.phone)}</div></td>
+          <td class="lo">${esc(r.product)} <span class="muted">${esc(r.brand)} ${esc(r.model)}</span></td>
+          <td class="lo">${esc(r.symptom)||'-'}</td>
+          <td class="num">${fmt(r.cost)} <span class="muted">${CONFIG.CURRENCY}</span></td>
+          <td class="num">${esc(r.duedate)||'-'}</td>
+          <td><select class="inp" style="min-width:118px;height:34px;padding:4px 8px" onchange="App.repairStatus('${r.id}',this.value)">${STA.map(st=>`<option ${r.status===st?'selected':''}>${st}</option>`).join('')}</select></td>
+          <td>${rowActions("App.editRepair('"+r.id+"')","App.delRow('repair','"+r.id+"')")}</td></tr>`
+      });
     },
 
     placeholder(c){
@@ -2586,6 +2611,48 @@ const App = {
   },
   async doDel(table,id){ try{ await Store.remove(table,id); toast('ລຶບແລ້ວ','ok'); }catch(e){ toast('ຜິດພາດ','err'); } closeModal(); App.route(); },
 
+  /* ---------- REPAIR (ສ້ອມແປງ) ---------- */
+  editRepair(id){
+    const r=(App.state.data.repair||[]).find(x=>x.id===id)||{};
+    modal(formModal('ລາຍການສ້ອມແປງ',[
+      {k:'name',l:'ຊື່-ນາມສະກຸນ',v:r.name,full:1},
+      {k:'address',l:'ທີ່ຢູ່',v:r.address,t:'textarea',full:1},
+      {k:'phone',l:'ເບີໂທ',v:r.phone},
+      {k:'product',l:'ຊື່ສິນຄ້າ',v:r.product},
+      {k:'brand',l:'ຍີ່ຫໍ້',v:r.brand},
+      {k:'model',l:'ລຸ້ນ',v:r.model},
+      {k:'color',l:'ສີ',v:r.color},
+      {k:'sn',l:'S/N imei',v:r.sn},
+      {k:'condition',l:'ສະພາບເຄື່ອງ',v:r.condition,full:1},
+      {k:'symptom',l:'ອາການເສຍ',v:r.symptom,t:'textarea',full:1},
+      {k:'accessories',l:'ອຸປະກອນທີ່ນຳມາດ້ວຍ',v:r.accessories,full:1},
+      {k:'cost',l:'ປະເມີນຄ່າສ້ອມແປງ',v:r.cost,t:'number'},
+      {k:'duedate',l:'ວັນນັດຮັບສິນຄ້າ',v:r.duedate||new Date(Date.now()+7*864e5).toISOString().slice(0,10),t:'date'},
+    ],"App.saveRepair('"+(id||'')+"')",true));
+  },
+  async saveRepair(id){
+    const row={}; document.querySelectorAll('#formModal [data-k]').forEach(el=>row[el.dataset.k]=el.value);
+    try{
+      if(id){
+        const cur=(App.state.data.repair||[]).find(x=>x.id===id)||{};
+        row.id=id; row.runno=cur.runno; row.status=cur.status; row.recorded=cur.recorded;
+        await Store.update('repair',row); toast('ບັນທຶກການແກ້ໄຂແລ້ວ','ok');
+      } else {
+        row.runno='RP-'+String(Date.now()).slice(-5); row.status='ມາໃໝ່';
+        row.recorded=new Date().toISOString().slice(0,16).replace('T',' ');
+        await Store.create('repair',row); toast('ເພີ່ມລາຍການສ້ອມແປງແລ້ວ','ok');
+      }
+      App.state.data.repair=await Store.list('repair'); closeModal(); App.route();
+    }catch(e){ toast('ຜິດພາດ: '+e.message,'err'); }
+  },
+  async repairStatus(id,val){
+    try{
+      await Store.update('repair',{id,status:val});
+      const r=(App.state.data.repair||[]).find(x=>x.id===id); if(r)r.status=val;
+      toast('ອັບເດດສະຖານະເປັນ "'+val+'"','ok');
+    }catch(e){ toast('ຜິດພາດ','err'); }
+  },
+
   /* ---------- SETTINGS ---------- */
   saveSettings(){ CONFIG.STORE_NAME=$('#setStore').value; CONFIG.CURRENCY=$('#setCur').value; localStorage_set('ksv-store',CONFIG.STORE_NAME); localStorage_set('ksv-cur',CONFIG.CURRENCY); $('#storeBadge').textContent=CONFIG.STORE_NAME; toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
   connectSheets(){ CONFIG.APPS_SCRIPT_URL=$('#setUrl').value.trim(); CONFIG.TOKEN=$('#setToken').value.trim(); localStorage_set('ksv-url',CONFIG.APPS_SCRIPT_URL); localStorage_set('ksv-token',CONFIG.TOKEN); toast(CONFIG.APPS_SCRIPT_URL?'ບັນທຶກ & ເຊື່ອມຕໍ່ຖາວອນແລ້ວ':'ກັບໄປໂໝດ Demo','ok'); App.route(); },
@@ -2627,7 +2694,7 @@ function formModal(name, fields, saveFn, wide){
   return `<div class="modal-head"><h3 class="lo">ຈັດການ${esc(name)}</h3><button class="icon-btn" style="margin-left:auto" onclick="closeModal()">${I.close}</button></div>
   <div class="modal-body" id="formModal"><div class="form-grid">
     ${fields.map(f=>`<div class="fg ${f.full?'full':''}"><label>${esc(f.l)}</label>
-      <input class="inp" data-k="${f.k}" type="${f.t||'text'}" value="${esc(f.v)}"></div>`).join('')}
+      ${f.t==='textarea'?`<textarea data-k="${f.k}" rows="3">${esc(f.v)}</textarea>`:`<input class="inp" data-k="${f.k}" type="${f.t||'text'}" value="${esc(f.v)}">`}</div>`).join('')}
   </div></div>
   <div class="modal-foot"><button class="btn lo" onclick="closeModal()">ຍົກເລີກ</button>
     <button class="btn btn-primary lo" onclick="${saveFn}">${I.check} ບັນທຶກ</button></div>`;
