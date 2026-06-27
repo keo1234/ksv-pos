@@ -394,11 +394,11 @@ html[data-theme=dark] .banner.warn{background:#231b08;color:#e6bf6a;border-color
     </div>
     <h2 class="lo">ຍິນດີຕ້ອນຮັບກັບມາ</h2>
     <p class="sub lo">ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອເລີ່ມໃຊ້ງານ</p>
-    <div class="field"><label class="lo">ຊື່ຜູ້ໃຊ້</label><input id="lg-user" value="" autocomplete="username" placeholder="ຊື່ຜູ້ໃຊ້"></div>
-    <div class="field"><label class="lo">ລະຫັດຜ່ານ</label><input id="lg-pass" type="password" value="" autocomplete="current-password" placeholder="ລະຫັດຜ່ານ"></div>
+    <div class="field"><label class="lo">ຊື່ຜູ້ໃຊ້</label><input id="lg-user" value="admin" autocomplete="username"></div>
+    <div class="field"><label class="lo">ລະຫັດຜ່ານ</label><input id="lg-pass" type="password" value="1234" autocomplete="current-password"></div>
     <label class="lo" style="display:flex;align-items:center;gap:8px;font-size:13px;margin:2px 0 12px;cursor:pointer;color:var(--ink-soft)"><input type="checkbox" id="lg-remember" style="width:16px;height:16px;cursor:pointer"> ຈຳລະຫັດໄວ້ (ເຂົ້າອັດຕະໂນມັດເທື່ອໜ້າ)</label>
     <button class="btn-login lo" onclick="App.login()">ເຂົ້າສູ່ລະບົບ</button>
-
+    <p class="login-hint lo">🧪 ໂໝດ Demo (ທົດລອງ) · admin / 1234</p>
   </div>
 </div>
 
@@ -441,10 +441,10 @@ html[data-theme=dark] .banner.warn{background:#231b08;color:#e6bf6a;border-color
 
 /* ---- CONFIG : ໃສ່ URL ຂອງ Google Apps Script Web App ທີ່ນີ້ ---- */
 const CONFIG = {
-  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxlj-LVSyh5GlBS05pJc4IQy1__uwKlokftbyz1B_Ktnqw9SK31G9f7OIANIZopV0V0/exec",  // ເຊື່ອມ Google Sheets ຕົວຈິງ (ຝັງຄ່າຄົງທີ່)
+  APPS_SCRIPT_URL: "",                                   // ໂໝດ Demo ສະເໝີ (ລິ້ງທົດລອງ)
   STORE_NAME: localStorage_get('ksv-store',"KSV ສຳນັກງານໃຫຍ່"),
   CURRENCY: localStorage_get('ksv-cur',"ກີບ"),
-  TOKEN: "ksv-secret-2026"  // ຕ້ອງກົງກັບໃນ Code.gs
+  TOKEN: localStorage_get('ksv-token',"ksv-secret-2026")  // ຕ້ອງກົງກັບໃນ Code.gs
 };
 
 /* ---- ICONS (inline SVG) ---- */
