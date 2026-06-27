@@ -444,7 +444,7 @@ const CONFIG = {
   APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxlj-LVSyh5GlBS05pJc4IQy1__uwKlokftbyz1B_Ktnqw9SK31G9f7OIANIZopV0V0/exec",  // ເຊື່ອມ Google Sheets ຕົວຈິງ (ຝັງຄ່າຄົງທີ່)
   STORE_NAME: localStorage_get('ksv-store',"KSV ສຳນັກງານໃຫຍ່"),
   CURRENCY: localStorage_get('ksv-cur',"ກີບ"),
-  TOKEN: "ksv-secret-2026"  // ຕ້ອງກົງກັບໃນ Code.gs
+  TOKEN: "ksv-71be638f-9a14cb-2026"  // ຕ້ອງກົງກັບໃນ Code.gs
 };
 
 /* ---- ICONS (inline SVG) ---- */
@@ -559,7 +559,7 @@ const Store = {
   async api(action, table, payload){
     const url = CONFIG.APPS_SCRIPT_URL;
     const body = JSON.stringify({action, table, token:CONFIG.TOKEN, data:payload});
-    if(action==='list'){
+    if(action==='list'||action==='login'){
       // ອ່ານ: GET ?payload= (Apps Script ອະນຸຍາດ CORS ສຳລັບ GET)
       const res = await fetch(url+(url.indexOf('?')<0?'?':'&')+'payload='+encodeURIComponent(body));
       const j = await res.json();
@@ -724,15 +724,25 @@ function closeModal(){ if(MODAL){MODAL.remove();MODAL=null} }
 const App = {
   state:{ user:null, route:'dashboard', cart:[], cat:'all', data:{} },
 
-  login(){
+  async login(){
     const u=$('#lg-user').value.trim(), p=$('#lg-pass').value;
-    if(u==='admin'&&p==='1234'){
-      const rem=$('#lg-remember');
-      if(rem&&rem.checked) localStorage_set('ksv-remember',JSON.stringify({u,p})); else localStorage_set('ksv-remember','');
-      this.state.user={name:'admin', role:'Admin'};
-      $('#login').style.display='none'; $('#app').style.display='grid';
-      this.boot();
-    } else toast('ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ','err');
+    if(Store.online()){
+      try{
+        const r=await Store.api('login',null,{username:u,password:p});
+        if(r&&r.ok) this._loginOk(u,p,r.name||u);
+        else toast('ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ','err');
+      }catch(e){ toast('ເຊື່ອມຕໍ່ບໍ່ສຳເລັດ: '+e.message,'err'); }
+    } else {
+      if(u==='admin'&&p==='1234') this._loginOk(u,p,'admin');
+      else toast('ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ','err');
+    }
+  },
+  _loginOk(u,p,name){
+    const rem=$('#lg-remember');
+    if(rem&&rem.checked) localStorage_set('ksv-remember',JSON.stringify({u,p})); else localStorage_set('ksv-remember','');
+    this.state.user={name:name||'admin', role:'Admin'};
+    $('#login').style.display='none'; $('#app').style.display='grid';
+    this.boot();
   },
   logout(){ location.reload(); },
 

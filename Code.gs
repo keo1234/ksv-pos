@@ -13,7 +13,12 @@
  *  5) ໃຫ້ TOKEN ກົງກັນທັງສອງບ່ອນ
  *************************************************************/
 
-var TOKEN = "ksv-secret-2026"; // ⚠ ປ່ຽນເປັນລະຫັດຂອງເຈົ້າເອງ ແລະ ໃຫ້ກົງກັບ CONFIG.TOKEN
+var TOKEN = "ksv-71be638f-9a14cb-2026"; // ⚠ ໃຫ້ກົງກັບ CONFIG.TOKEN ໃນ index.html
+
+// ບັນຊີຜູ້ໃຊ້ (ກວດ login ຝັ່ງ server — ລະຫັດບໍ່ຢູ່ໃນ client)
+var USERS = [
+  { username: "ksv", password: "k1987", name: "ksv", role: "Admin" }
+];
 
 // ໂຄງສ້າງຖັນ (headers) ຂອງແຕ່ລະຕາຕະລາງ
 var SCHEMA = {
@@ -51,6 +56,12 @@ function handle(e) {
       body = JSON.parse(e.parameter.payload);
     }
     if (TOKEN && body.token !== TOKEN) return out({ error: "Unauthorized token" });
+
+    if (body.action === "login") {
+      var lu = (body.data || {}).username, lp = (body.data || {}).password;
+      var hit = USERS.filter(function (x) { return x.username === lu && x.password === lp; })[0];
+      return out({ data: hit ? { ok: true, name: hit.name, role: hit.role } : { ok: false } });
+    }
 
     var table = body.table;
     if (!SCHEMA[table]) return out({ error: "Unknown table: " + table });
