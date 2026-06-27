@@ -599,6 +599,7 @@ const DEMO = {
     {id:"p8", barcode:"900115", name:"ສາຍ HDMI 2m", category:"ອຸປະກອນ", price:45000, cost:25000, stock:60, unit:"ເສັ້ນ", vendor:"Vendor C"},
     {id:"p9", barcode:"900116", name:"USB 64GB", category:"ອຸປະກອນ", price:75000, cost:48000, stock:50, unit:"ໜ່ວຍ", vendor:"Vendor D"},
     {id:"p10", barcode:"900117", name:"ລຳໂພງ Bluetooth", category:"ສຽງ", price:450000, cost:330000, stock:18, unit:"ໜ່ວຍ", vendor:"Vendor D"},
+    {id:"p11", barcode:"880099", name:"ເຈ້ຍ A4 ແດງ", category:"ເຄື່ອງຂຽນ", price:93000, cost:80000, stock:59, unit:"ຕັບ", unitBig:"ແກັດ", bigRatio:5, priceBig:460000, costBig:400000, vendor:"Vendor E"},
   ],
   customers:[
     {id:"c1", code:"scc-001", name:"ທ້າວ ມິກຕະນາ ແສນຄຳ", group:"vip1", address:"ບ້ານ ແຄນສະຫວ່າງ, ເມືອງ ສະຫວັນນະເຂດ", phone:"99709922", email:"", birthday:"01-01-1999"},
@@ -888,12 +889,7 @@ const App = {
         <div class="stat-card"><div class="s-top"><span class="s-lbl">ລູກຄ້າສະມາຊິກ</span><div class="s-ico" style="background:#eef0f4;color:#5b6472">${I.users}</div></div>
           <div class="s-val">${customers.length}</div><div class="s-sub">ຄົນ</div></div>
       </div>
-      <div class="section-h"><span class="lo">ເມນູການໃຊ້ງານ</span><div class="ln"></div></div>
-      <div class="dash-grid" id="tiles"></div>`;
-      let th='';
-      TILES.forEach(t=>{ th+=`<div class="tile" style="background:${t.c}" onclick="App.go('${t.id}')">
-        <div class="t-ico">${I[t.ic]}</div><div><b>${esc(t.t)}</b><small style="display:block">${esc(t.s)}</small></div></div>`; });
-      $('#tiles').innerHTML=th;
+      `;
     },
 
     async pos(c){
@@ -902,6 +898,7 @@ const App = {
       App.state.posCust = App.state.posCust||''; App.state.payType=App.state.payType||'ເງິນສົດ';
       App.state.priceType=App.state.priceType||'ລາຄາຂາຍ'; App.state.discType=App.state.discType||'ເງິນ';
       App.state.saleDate=App.state.saleDate||new Date().toISOString().slice(0,10);
+      App.state.vatRate=(App.state.vatRate==null)?10:App.state.vatRate; App.state.vatOn=App.state.vatOn||false;
       const cats = ['all',...new Set(products.map(p=>p.category))];
       c.innerHTML=`
       <div class="pos-wrap">
@@ -1506,7 +1503,9 @@ const App = {
   rmCart(key){ this.state.cart=this.state.cart.filter(x=>x.key!==key); this.cartRender(); },
   lineTotal(it){ return Math.max(0, it.price*it.qty - (+it.disc||0)); },
   cartSub(){ return (this.state.cart||[]).reduce((a,b)=>a+this.lineTotal(b),0); },
-  cartTotal(){ const sub=this.cartSub(); const raw=+(this.state.discountRaw||0); const d=this.state.discType==='%'?Math.round(sub*raw/100):raw; this.state.discount=d; return Math.max(0,sub-d); },
+  cartBeforeVat(){ const sub=this.cartSub(); const raw=+(this.state.discountRaw||0); const d=this.state.discType==='%'?Math.round(sub*raw/100):raw; this.state.discount=d; return Math.max(0,sub-d); },
+  cartVat(){ const r=+(this.state.vatRate??10); return this.state.vatOn?Math.round(this.cartBeforeVat()*r/100):0; },
+  cartTotal(){ return this.cartBeforeVat()+this.cartVat(); },
   cartRender(){
     const cart=this.state.cart;
     const cc=$('#cartCount'); if(cc) cc.textContent=cart.length?cart.length+' ລາຍການ':'';
@@ -1516,7 +1515,7 @@ const App = {
         <div style="display:flex;gap:10px;width:100%;align-items:flex-start">
           <div class="qty" style="flex:none"><button onclick="App.setQty('${it.key||it.id}',-1)">−</button>
             <input value="${it.qty}" onchange="App.setQtyVal('${it.key||it.id}',this.value)"><button onclick="App.setQty('${it.key||it.id}',1)">+</button></div>
-          <div class="ci-info" style="flex:1"><div class="ci-name lo">${esc(it.name)} <span class="muted" style="font-weight:400">(${esc(it.unit)})</span></div>
+          <div class="ci-info" style="flex:1"><div class="ci-name lo">${esc(it.name)} ${(()=>{const p=this._prod(it.id);return this.hasBig(p)?`<select class="inp" style="height:24px;padding:1px 6px;font-size:11px;width:auto;display:inline-block" onchange="App.changeUnit('${it.key||it.id}',this.value)"><option value="sub" ${(+it.basePer>1)?'':'selected'}>${esc(p.unit||'ໜ່ວຍ')}</option><option value="big" ${(+it.basePer>1)?'selected':''}>${esc(p.unitBig)}</option></select>`:`<span class="muted" style="font-weight:400">(${esc(it.unit)})</span>`})()}</div>
             <div class="ci-price">${fmt(it.price)} ${CONFIG.CURRENCY}</div></div>
           <div style="text-align:right"><div class="ci-total">${fmt(this.lineTotal(it))}</div></div>
           <button class="ci-del icon-btn" style="width:24px;height:24px;flex:none" onclick="App.rmCart('${it.key||it.id}')">${I.close}</button>
@@ -1531,6 +1530,8 @@ const App = {
     const discMoney=this.state.discType==='%'?Math.round(sub*raw/100):raw;
     const total=Math.max(0,sub-discMoney);
     this.state.discount=discMoney;
+    const vatRate=+(this.state.vatRate??10); const vatOn=!!this.state.vatOn;
+    const vatAmt=vatOn?Math.round(total*vatRate/100):0; const grand=total+vatAmt;
     const foot=$('#cartFoot'); if(!foot)return;
     foot.innerHTML=`
       <button class="btn lo" style="width:100%;background:linear-gradient(135deg,var(--gold),#eec069);color:#fff;border:none;margin-bottom:10px;justify-content:center" onclick="App.depositPromo()">${I.money} ເພີ່ມເງິນມັດຈຳ / ໂປຣໂມຊັນ</button>
@@ -1542,19 +1543,32 @@ const App = {
           <div class="seg"><button class="${this.state.discType==='ເງິນ'?'active':''}" onclick="App.setDiscType('ເງິນ')">ເງິນ</button><button class="${this.state.discType==='%'?'active':''}" onclick="App.setDiscType('%')">%</button></div>
         </span>
       </div>
-      <div class="sumrow sum-total"><span>ລວມທັງໝົດ</span><span class="v" id="ctTotal">${fmt(total)} ${CONFIG.CURRENCY}</span></div>
+      <div class="sumrow" style="align-items:center"><span style="display:flex;align-items:center;gap:6px"><label class="chk" style="margin:0"><input type="checkbox" ${vatOn?'checked':''} onchange="App.toggleVat(this.checked)"> ຄິດ VAT</label><input class="inp" value="${vatRate}" style="width:52px;text-align:right;padding:5px 7px" ${vatOn?'':'disabled'} onchange="App.setVatRate(this.value)"><span class="muted">%</span></span><span class="v" id="ctVat">${vatOn?fmt(vatAmt):'-'}</span></div>
+      <div class="sumrow sum-total"><span>ລວມທັງໝົດ</span><span class="v" id="ctTotal">${fmt(grand)} ${CONFIG.CURRENCY}</span></div>
       <div class="sumrow" style="align-items:center;margin-top:8px"><span>ເລືອກວັນທີຂາຍ</span><input type="date" class="inp" value="${this.state.saleDate}" style="padding:6px 8px;width:auto" onchange="App.state.saleDate=this.value"></div>
       <button class="pay-btn" ${cart.length?'':'disabled'} onclick="App.checkout()">ຮັບເງິນ (SpaceBar)</button>`;
   },
   applyDiscount(v){
     this.state.discountRaw=v;
-    const cart=this.state.cart; const sub=cart.reduce((a,b)=>a+b.price*b.qty,0);
+    const sub=this.cartSub();
     const raw=+(v||0); const disc=this.state.discType==='%'?Math.round(sub*raw/100):raw;
     const total=Math.max(0,sub-disc); this.state.discount=disc;
+    const vatRate=+(this.state.vatRate??10); const vatOn=!!this.state.vatOn;
+    const vatAmt=vatOn?Math.round(total*vatRate/100):0; const grand=total+vatAmt;
     const d=$('#ctDisc'); if(d)d.textContent=fmt(disc);
-    const t=$('#ctTotal'); if(t)t.textContent=fmt(total)+' '+CONFIG.CURRENCY;
+    const vd=$('#ctVat'); if(vd)vd.textContent=vatOn?fmt(vatAmt):'-';
+    const t=$('#ctTotal'); if(t)t.textContent=fmt(grand)+' '+CONFIG.CURRENCY;
   },
   setDiscType(t){ this.state.discType=t; this.cartRender(); },
+  changeUnit(key,kind){
+    const it=this.state.cart.find(x=>x.key===key); if(!it)return;
+    const p=this._prod(it.id); if(!p)return;
+    const isBig=kind==='big'&&this.hasBig(p);
+    it.basePer=isBig?(+p.bigRatio):1; it.unit=isBig?p.unitBig:(p.unit||'ໜ່ວຍ'); it.price=isBig?(+p.priceBig||0):this.priceOf(p);
+    this.cartRender();
+  },
+  toggleVat(on){ this.state.vatOn=on; this.cartRender(); },
+  setVatRate(v){ this.state.vatRate=Math.max(0,+v||0); this.cartRender(); },
   depositPromo(){
     modal(`<div class="modal-head"><h3 class="lo">ເງິນມັດຈຳ / ໂປຣໂມຊັນ</h3><button class="icon-btn" style="margin-left:auto" onclick="closeModal()">${I.close}</button></div>
       <div class="modal-body"><div class="fg"><label>ສ່ວນຫຼຸດໂປຣໂມຊັນເພີ່ມ (ເງິນ)</label><input class="inp" id="promoVal" type="number" placeholder="0" value=""></div>
@@ -1647,6 +1661,7 @@ const App = {
       runno, date:(this.state.saleDate||new Date().toISOString().slice(0,10))+' '+now,
       cashier:this.state.user.name, customer:this.state.posCust||'', branch:CONFIG.STORE_NAME,
       items:cart.reduce((a,b)=>a+b.qty,0), subtotal:this.cartSub(), discount:this.state.discount||0,
+      beforeVat:this.cartBeforeVat(), vat:this.cartVat(), vatRate:this.state.vatOn?(+(this.state.vatRate)||0):0,
       total:this.state.payTotal, paid:paid, paytype:multi?'ຫຼາຍຊ່ອງທາງ':(this.state.payType||'ເງິນສົດ'),
       note:this.state.payNote||'', lines:JSON.stringify(lines),
       status:credit&&paid<this.state.payTotal?'ຄ້າງຊຳລະ':'ສຳເລັດ'
@@ -1690,7 +1705,7 @@ const App = {
   printReceipt(size){
     const b=this.state.lastBill; if(!b){toast('ບໍ່ມີຂໍ້ມູນບິນ','err');return;}
     let lines=[]; try{ lines=typeof b.lines==='string'?JSON.parse(b.lines||'[]'):(b.lines||[]); }catch(e){ lines=[]; }
-    const total=+b.total||0; const beforeVAT=Math.round(total/1.07*100)/100; const vat=Math.round((total-beforeVAT)*100)/100;
+    const total=+b.total||0; const vat=+b.vat||0; const beforeVAT=(b.beforeVat!=null&&b.beforeVat!=='')?+b.beforeVat:(total-vat); const vrate=+b.vatRate||0;
     const head=`<div class="center"><img class="logo" src="" onerror="this.style.display='none'"><div class="bold" style="font-size:16px">KSV POS</div>
       <div>${esc(CONFIG.STORE_NAME)}</div><div>ໂທ: 020-XXXXXXX</div><div>Runno: ${esc(b.runno)}</div><div class="bold">ໃບຮັບເງິນ</div></div>`;
     const meta=`<div style="display:flex;justify-content:space-between;font-size:12px;margin:6px 0"><div>ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}</div><div>ວັນທີ: ${esc(b.date)}</div></div><div style="font-size:12px;margin-bottom:6px">ພະນັກງານ: ${esc(b.cashier)}</div>`;
@@ -1722,8 +1737,8 @@ const App = {
           <td style="border:1px solid #000;padding:0">
             <table><tr><td style="padding:4px 8px">ລວມ</td><td class="right" style="padding:4px 8px">${fmt(b.subtotal)}</td></tr>
             <tr><td style="padding:4px 8px">ສ່ວນຫຼຸດທ້າຍບິນ</td><td class="right" style="padding:4px 8px">-${fmt(b.discount)}</td></tr>
-            <tr><td style="padding:4px 8px">ຍອດກ່ອນພາສີ</td><td class="right" style="padding:4px 8px">${fmt(beforeVAT)}</td></tr>
-            <tr><td style="padding:4px 8px">ພາສີ VAT 7%</td><td class="right" style="padding:4px 8px">${fmt(vat)}</td></tr>
+            ${vat>0?`<tr><td style="padding:4px 8px">ຍອດກ່ອນພາສີ</td><td class="right" style="padding:4px 8px">${fmt(beforeVAT)}</td></tr>
+            <tr><td style="padding:4px 8px">ພາສີ VAT ${vrate}%</td><td class="right" style="padding:4px 8px">${fmt(vat)}</td></tr>`:''}
             <tr class="bold"><td style="padding:4px 8px">ລວມທັງໝົດ</td><td class="right" style="padding:4px 8px">${fmt(total)}</td></tr></table></td></tr></table>
         <table style="margin-top:26px;text-align:center"><tr>
           <td>......................<br>ຜູ້ສັ່ງສິນຄ້າ</td><td>......................<br>ຜູ້ຮັບສິນຄ້າ</td><td>......................<br>ຜູ້ອະນຸມັດ</td></tr></table>
