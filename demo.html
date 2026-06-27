@@ -141,6 +141,9 @@ input,select,textarea{font-family:inherit;font-size:14px;color:inherit}
 #app.collapsed .nav-item{justify-content:center;padding:11px}
 
 .main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.loadwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;padding:50px 20px}
+.spinner{width:38px;height:38px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:ksvspin .8s linear infinite}
+@keyframes ksvspin{to{transform:rotate(360deg)}}
 .topbar{
   height:66px;flex:none;display:flex;align-items:center;gap:14px;padding:0 22px;
   background:var(--surface);border-bottom:1px solid var(--line);
@@ -417,6 +420,7 @@ html[data-theme=dark] .banner.warn{background:#231b08;color:#e6bf6a;border-color
       <div class="page-title" id="pageTitle"></div>
       <div class="topbar-right">
         <span class="store-badge lo" id="storeBadge">KSV ສຳນັກງານໃຫຍ່</span>
+        <button class="icon-btn" onclick="App.refreshData()" id="ic-refresh" title="ໂຫຼດຂໍ້ມູນໃໝ່ຈາກ Sheets"></button>
         <button class="icon-btn" onclick="App.lowStockAlert(true)" id="ic-bell" title="ແຈ້ງເຕືອນສິນຄ້າເຫຼືອນ້ອຍ" style="position:relative"></button>
         <button class="icon-btn" onclick="App.toggleTheme()" id="ic-theme" title="ສະຫຼັບໂໝດ"></button>
         <div class="user-chip" onclick="App.go('settings')">
@@ -570,22 +574,29 @@ const Store = {
     await fetch(url, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body});
     return payload;
   },
-  async list(table){
-    if(this.online()) return await this.api("list", table);
+  _cache:{},
+  clearCache(table){ if(table) delete this._cache[table]; else this._cache={}; },
+  async list(table, force){
+    if(this.online()){
+      if(!force && this._cache[table]) return this._cache[table];   // ໃຊ້ cache → ປ່ຽນໜ້າໄວ
+      const data = await this.api("list", table);
+      this._cache[table] = data;
+      return data;
+    }
     return JSON.parse(JSON.stringify(DEMO[table]||[]));
   },
   async create(table, row){
     row.id = row.id || (table.slice(0,2)+Date.now());
-    if(this.online()) return await this.api("create", table, row);
+    if(this.online()){ const r=await this.api("create", table, row); delete this._cache[table]; return r; }
     DEMO[table] = DEMO[table]||[]; DEMO[table].unshift(row); return row;
   },
   async update(table, row){
-    if(this.online()) return await this.api("update", table, row);
+    if(this.online()){ const r=await this.api("update", table, row); delete this._cache[table]; return r; }
     const arr = DEMO[table]||[]; const i = arr.findIndex(x=>x.id===row.id);
     if(i>=0) arr[i]=Object.assign({},arr[i],row); return row;
   },
   async remove(table, id){
-    if(this.online()) return await this.api("delete", table, {id});
+    if(this.online()){ const r=await this.api("delete", table, {id}); delete this._cache[table]; return r; }
     DEMO[table] = (DEMO[table]||[]).filter(x=>x.id!==id); return true;
   }
 };
@@ -749,6 +760,7 @@ const App = {
   boot(){
     // icons
     $('#ic-menu').innerHTML=I.menu; $('#ic-logout').innerHTML=I.logout; $('#ic-bell').innerHTML=I.bell;
+    if($('#ic-refresh')) $('#ic-refresh').innerHTML=I.refresh;
     this.applyTheme(this.theme);
     this.applyBrand(this.brand);
     if(this.bg) this.applyBg(this.bg);
@@ -860,6 +872,7 @@ const App = {
     $('#nav').innerHTML=h;
   },
   go(id){ location.hash='#'+id; if(window.innerWidth<=720) $('#app').classList.remove('mobile-open'); },
+  refreshData(){ Store.clearCache(); toast('ກຳລັງໂຫຼດຂໍ້ມູນໃໝ່...','ok'); this.route(); },
 
   route(){
     const id=(location.hash||'#dashboard').slice(1);
@@ -868,6 +881,7 @@ const App = {
     const meta=this.routeMeta(id);
     $('#pageTitle').innerHTML='<span class="lo">'+esc(meta.t)+'</span>'+(meta.s?'<small class="lo">'+esc(meta.s)+'</small>':'');
     const fn=this.views[id]||this.views.placeholder;
+    if(Store.online()) $('#content').innerHTML='<div class="loadwrap"><div class="spinner"></div><div class="lo" style="margin-top:10px;color:var(--ink-soft)">ກຳລັງໂຫຼດ...</div></div>';
     fn.call(this, $('#content'));
   },
   routeMeta(id){
@@ -887,9 +901,7 @@ const App = {
   /* ---------- VIEWS ---------- */
   views:{
     async dashboard(c){
-      const sales = await Store.list('sales');
-      const products = await Store.list('products');
-      const customers = await Store.list('customers');
+      const [sales, products, customers] = await Promise.all([Store.list('sales'), Store.list('products'), Store.list('customers')]);
       const today = sales; // demo
       const totalToday = today.reduce((a,b)=>a+(+b.total||0),0);
       const lowStock = products.filter(p=>+p.stock<=5).length;
