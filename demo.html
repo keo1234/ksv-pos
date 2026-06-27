@@ -1146,10 +1146,11 @@ const App = {
       c.innerHTML=tableView({
         title:'ຜູ້ໃຊ້ງານ', icon:'user', count:data.length+' ບັນຊີ',
         addLabel:'ເພີ່ມຜູ້ໃຊ້ໃໝ່', addFn:"App.editUser()",
-        cols:['ຊື່ຜູ້ໃຊ້ງານ','ກຸ່ມຜູ້ໃຊ້','ສາຂາ','Username',''],
+        cols:['ຊື່ຜູ້ໃຊ້ງານ','ກຸ່ມຜູ້ໃຊ້','ສາຂາ','Username','ລະຫັດ',''],
         rows:data,
-        render:u=>`<tr><td class="lo" style="font-weight:600;color:${u.role.includes('Admin')?'var(--brand-2)':'inherit'}">${esc(u.name)}</td>
+        render:u=>`<tr><td class="lo" style="font-weight:600;color:${(u.role||'').includes('Admin')?'var(--brand-2)':'inherit'}">${esc(u.name)}</td>
           <td class="lo">${esc(u.role)}</td><td class="lo muted">${esc(u.branch)}</td><td class="num">${esc(u.username)}</td>
+          <td>${u.password?'<span class="pill pill-green">ຕັ້ງແລ້ວ</span>':'<span class="muted">ຍັງ</span>'}</td>
           <td>${rowActions("App.editUser('"+u.id+"')",u.username==='admin'?null:"App.delRow('users','"+u.id+"')")}</td></tr>`
       });
     },
@@ -2604,7 +2605,8 @@ const App = {
     const p=(App.state.data.users||[]).find(x=>x.id===id)||{};
     modal(formModal('ຜູ້ໃຊ້ງານ', [
       {k:'name',l:'ຊື່ຜູ້ໃຊ້ງານ',v:p.name,full:1},
-      {k:'username',l:'Username',v:p.username},{k:'role',l:'ກຸ່ມ/ສິດ',v:p.role},
+      {k:'username',l:'Username (ໃຊ້ login)',v:p.username},{k:'role',l:'ກຸ່ມ/ສິດ',v:p.role},
+      {k:'password',l:'ລະຫັດຜ່ານ (ສຳລັບເຂົ້າລະບົບ)',v:p.password,full:1},
       {k:'branch',l:'ສາຂາ',v:p.branch,full:1},
     ], "App.saveRow('users','"+(id||'')+"')"));
   },

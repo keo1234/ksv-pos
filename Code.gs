@@ -35,7 +35,7 @@ var SCHEMA = {
   cuslevels: ["id","name","min","note"],
   contacts:  ["id","date","customer","channel","reason","note","status"],
   sales:     ["id","runno","date","cashier","customer","items","subtotal","discount","total","paid","paytype","branch","note","lines","status"],
-  users:     ["id","name","role","branch","username"],
+  users:     ["id","name","role","branch","username","password"],
   employees: ["id","name","position","phone","salary"],
   purchase:  ["id","no","ref","vendor","items","total","tax","note","date","recorded","imported"],
   vendors:   ["id","name","phone","address","note"],
@@ -58,8 +58,15 @@ function handle(e) {
     if (TOKEN && body.token !== TOKEN) return out({ error: "Unauthorized token" });
 
     if (body.action === "login") {
-      var lu = (body.data || {}).username, lp = (body.data || {}).password;
-      var hit = USERS.filter(function (x) { return x.username === lu && x.password === lp; })[0];
+      var lu = String((body.data || {}).username || ""), lp = String((body.data || {}).password || "");
+      var hit = null;
+      // 1) ກວດຈາກຕາຕະລາງ users ໃນ Sheet (ຈັດການຜ່ານແອັບ — ຕັ້ງລະຫັດເອງໄດ້)
+      try {
+        var urows = listRows(getSheet("users"), "users");
+        hit = urows.filter(function (x) { return String(x.username) === lu && String(x.password) === lp && lp !== ""; })[0];
+      } catch (e) {}
+      // 2) ສຳຮອງ: ບັນຊີ admin ໃນໂຄ້ດ (ເຂົ້າໄດ້ສະເໝີ)
+      if (!hit) hit = USERS.filter(function (x) { return x.username === lu && x.password === lp; })[0];
       return out({ data: hit ? { ok: true, name: hit.name, role: hit.role } : { ok: false } });
     }
 
