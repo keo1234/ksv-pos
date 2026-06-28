@@ -740,18 +740,18 @@ const App = {
     if(Store.online()){
       try{
         const r=await Store.api('login',null,{username:u,password:p});
-        if(r&&r.ok) this._loginOk(u,p,r.name||u);
+        if(r&&r.ok) this._loginOk(u,p,r.name||u,r.role,r.perms);
         else toast('ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ','err');
       }catch(e){ toast('ເຊື່ອມຕໍ່ບໍ່ສຳເລັດ: '+e.message,'err'); }
     } else {
-      if(u==='admin'&&p==='1234') this._loginOk(u,p,'admin');
+      if(u==='admin'&&p==='1234') this._loginOk(u,p,'admin','Admin','all');
       else toast('ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ','err');
     }
   },
-  _loginOk(u,p,name){
+  _loginOk(u,p,name,role,perms){
     const rem=$('#lg-remember');
     if(rem&&rem.checked) localStorage_set('ksv-remember',JSON.stringify({u,p})); else localStorage_set('ksv-remember','');
-    this.state.user={name:name||'admin', role:'Admin'};
+    this.state.user={name:name||'admin', role:role||'Admin', perms: perms || (/Admin|ຜູ້ຈັດການ/.test(role||'')?'all':'')};
     $('#login').style.display='none'; $('#app').style.display='grid';
     this.boot();
   },
@@ -763,6 +763,7 @@ const App = {
     if($('#ic-refresh')) $('#ic-refresh').innerHTML=I.refresh;
     this.applyTheme(this.theme);
     this.applyBrand(this.brand);
+    this.applyLogo(this.logo);
     if(this.bg) this.applyBg(this.bg);
     if(!this.state.shift) this.state.shift={count:0,total:0,cash:0,startCash:+localStorage_get('ksv-startcash',0)||0,start:Date.now()};
     $('#storeBadge').textContent=CONFIG.STORE_NAME;
@@ -840,6 +841,19 @@ const App = {
   toggleTheme(){ this.theme=this.theme==='dark'?'light':'dark'; localStorage_set('ksv-theme',this.theme); this.applyTheme(this.theme); if(this.state.route==='settings')this.route(); },
   _hex2rgb(h){ h=h.replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; },
   _mix(h,target,amt){ const a=this._hex2rgb(h); const r=Math.round(a[0]+(target-a[0])*amt),g=Math.round(a[1]+(target-a[1])*amt),b=Math.round(a[2]+(target-a[2])*amt); return '#'+[r,g,b].map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,'0')).join(''); },
+  logo: localStorage_get('ksv-logo',''),
+  applyLogo(src){
+    document.querySelectorAll('.brandmark').forEach(el=>{
+      if(src){ el.style.backgroundImage='url('+src+')'; el.style.color='transparent'; el.dataset.hadlogo='1'; }
+      else { el.style.backgroundImage=''; el.style.color=''; if(el.dataset.hadlogo){ el.textContent='K'; } }
+    });
+  },
+  logoFromUrl(v){ this.logo=(v||'').trim(); this.applyLogo(this.logo); },
+  logoFromFile(input){ const fl=input.files&&input.files[0]; if(!fl)return;
+    if(fl.size>900000){ toast('ຮູບໃຫຍ່ເກີນ (ສູງສຸດ ~900KB) — ຫຍໍ້ຮູບກ່ອນ','err'); return; }
+    const rd=new FileReader(); rd.onload=e=>{ this.logo=e.target.result; this.applyLogo(this.logo); const u=$('#setLogoUrl'); if(u)u.value=''; toast('ໂຫຼດຮູບແລ້ວ — ກົດ "ບັນທຶກ" ເພື່ອບັນທຶກຖາວອນ','ok'); }; rd.readAsDataURL(fl);
+  },
+  logoClear(){ this.logo=''; this.applyLogo(''); const u=$('#setLogoUrl'); if(u)u.value=''; },
   applyBrand(hex){
     const rs=document.documentElement.style;
     rs.setProperty('--brand',hex);
@@ -861,11 +875,14 @@ const App = {
     else $('#app').classList.toggle('collapsed');
   },
 
+  _canAccess(id){ const perms=(this.state.user&&this.state.user.perms)||'all'; return perms==='all'||id==='dashboard'||(','+perms+',').indexOf(','+id+',')>=0; },
   renderNav(){
     let h='';
     NAV.forEach(g=>{
+      const items=g.items.filter(it=>this._canAccess(it.id));
+      if(!items.length) return;
       h+='<div class="nav-group-label">'+esc(g.g)+'</div>';
-      g.items.forEach(it=>{
+      items.forEach(it=>{
         h+='<div class="nav-item" data-id="'+it.id+'" onclick="App.go(\''+it.id+'\')">'+I[it.ic]+'<span class="lo">'+esc(it.t)+'</span></div>';
       });
     });
@@ -876,6 +893,7 @@ const App = {
 
   route(){
     const id=(location.hash||'#dashboard').slice(1);
+    if(!this._canAccess(id)){ toast('ບໍ່ມີສິດເຂົ້າໜ້ານີ້','err'); location.hash='#dashboard'; return; }
     this.state.route=id;
     document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.id===id));
     const meta=this.routeMeta(id);
@@ -1205,7 +1223,14 @@ const App = {
             <div class="form-grid">
               <div class="fg full"><label>ຊື່ຮ້ານ</label><input class="inp" id="setStore" value="${esc(CONFIG.STORE_NAME)}"></div>
               <div class="fg"><label>ສະກຸນເງິນ</label><input class="inp" id="setCur" value="${esc(CONFIG.CURRENCY)}"></div>
-              <div class="fg"><label>ໂລໂກ້</label><input class="inp" value="KSV" disabled></div>
+            </div>
+            <div class="fg full" style="margin-top:12px"><label>ໂລໂກ້ຮ້ານ (ໃສ່ລິ້ງ ຫຼື ອັບຮູບ)</label>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div class="brandmark" id="logoPreview" style="width:48px;height:48px;border-radius:11px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;background-size:cover;background-position:center">K</div>
+                <input class="inp" id="setLogoUrl" placeholder="https://.../logo.png" value="${esc(App.logo&&App.logo.indexOf('data:')!==0?App.logo:'')}" style="flex:1;min-width:200px" oninput="App.logoFromUrl(this.value)">
+                <label class="btn lo" style="cursor:pointer">${I.folder} ອັບຮູບ<input type="file" accept="image/*" style="display:none" onchange="App.logoFromFile(this)"></label>
+                <button class="btn lo" onclick="App.logoClear()">ລຶບ</button>
+              </div>
             </div>
             <button class="btn btn-primary lo" style="margin-top:16px" onclick="App.saveSettings()">${I.check} ບັນທຶກ</button>
           </div>
@@ -2603,12 +2628,38 @@ const App = {
   },
   editUser(id){
     const p=(App.state.data.users||[]).find(x=>x.id===id)||{};
-    modal(formModal('ຜູ້ໃຊ້ງານ', [
-      {k:'name',l:'ຊື່ຜູ້ໃຊ້ງານ',v:p.name,full:1},
-      {k:'username',l:'Username (ໃຊ້ login)',v:p.username},{k:'role',l:'ກຸ່ມ/ສິດ',v:p.role},
-      {k:'password',l:'ລະຫັດຜ່ານ (ສຳລັບເຂົ້າລະບົບ)',v:p.password,full:1},
-      {k:'branch',l:'ສາຂາ',v:p.branch,full:1},
-    ], "App.saveRow('users','"+(id||'')+"')"));
+    const mods=NAV.flatMap(g=>g.items).filter(x=>x.id!=='dashboard');
+    const full=(p.perms==='all')||(!p.perms && /Admin|ຜູ້ຈັດການ/.test(p.role||''));
+    const has=mid=> full || (','+(p.perms||'')+',').indexOf(','+mid+',')>=0;
+    modal(`<div class="modal-head"><h3 class="lo">ຈັດການຜູ້ໃຊ້ງານ</h3><button class="icon-btn" style="margin-left:auto" onclick="closeModal()">${I.close}</button></div>
+    <div class="modal-body" id="userForm">
+      <div class="form-grid">
+        <div class="fg full"><label>ຊື່ຜູ້ໃຊ້ງານ</label><input class="inp" data-k="name" value="${esc(p.name)}"></div>
+        <div class="fg"><label>Username (ໃຊ້ login)</label><input class="inp" data-k="username" value="${esc(p.username)}"></div>
+        <div class="fg"><label>ລະຫັດຜ່ານ (ສຳລັບເຂົ້າລະບົບ)</label><input class="inp" data-k="password" value="${esc(p.password)}"></div>
+        <div class="fg"><label>ກຸ່ມ/ສິດ (ປ້າຍຊື່)</label><input class="inp" data-k="role" value="${esc(p.role)}" placeholder="ເຊັ່ນ ຜູ້ຈັດການ, ພະນັກງານ"></div>
+        <div class="fg"><label>ສາຂາ</label><input class="inp" data-k="branch" value="${esc(p.branch)}"></div>
+      </div>
+      <label class="chk" style="margin-top:16px;font-weight:700;font-size:14px"><input type="checkbox" id="permFull" ${full?'checked':''} onchange="App.permToggleFull(this.checked)"> ສິດເຕັມ (Admin/ຜູ້ຈັດການ — ໃຊ້ໄດ້ທຸກໜ້າ)</label>
+      <div class="lo" style="font-size:12.5px;color:var(--ink-soft);margin:12px 0 8px">ຫຼື ຕິກເລືອກສະເພາະໜ້າທີ່ອະນຸຍາດໃຫ້ພະນັກງານໃຊ້:</div>
+      <div id="permGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+        ${mods.map(m=>`<label class="chk" style="font-size:13px"><input type="checkbox" class="perm-cb" value="${m.id}" ${has(m.id)?'checked':''} ${full?'disabled':''}> ${esc(m.t)}</label>`).join('')}
+      </div>
+      <div class="lo" style="font-size:11.5px;color:var(--ink-soft);margin-top:8px">ໝາຍເຫດ: ໜ້າຫຼັກ (Dashboard) ເຫັນໄດ້ທຸກຄົນ.</div>
+    </div>
+    <div class="modal-foot"><button class="btn lo" onclick="closeModal()">ຍົກເລີກ</button>
+      <button class="btn btn-primary lo" onclick="App.saveUser('${id||''}')">${I.check} ບັນທຶກ</button></div>`,true);
+  },
+  permToggleFull(on){ document.querySelectorAll('#permGrid .perm-cb').forEach(cb=>{ cb.disabled=on; if(on)cb.checked=true; }); },
+  async saveUser(id){
+    const row={}; document.querySelectorAll('#userForm [data-k]').forEach(el=>row[el.dataset.k]=el.value);
+    const full=document.getElementById('permFull').checked;
+    row.perms = full ? 'all' : [...document.querySelectorAll('#permGrid .perm-cb:checked')].map(cb=>cb.value).join(',');
+    try{
+      if(id){ row.id=id; await Store.update('users',row); toast('ບັນທຶກການແກ້ໄຂແລ້ວ','ok'); }
+      else { await Store.create('users',row); toast('ເພີ່ມຜູ້ໃຊ້ໃໝ່ແລ້ວ','ok'); }
+      App.state.data.users=await Store.list('users'); closeModal(); App.route();
+    }catch(e){ toast('ຜິດພາດ: '+e.message,'err'); }
   },
   editEmployee(id){
     const p=(App.state.data.employees||[]).find(x=>x.id===id)||{};
@@ -2699,7 +2750,7 @@ const App = {
   },
 
   /* ---------- SETTINGS ---------- */
-  saveSettings(){ CONFIG.STORE_NAME=$('#setStore').value; CONFIG.CURRENCY=$('#setCur').value; localStorage_set('ksv-store',CONFIG.STORE_NAME); localStorage_set('ksv-cur',CONFIG.CURRENCY); $('#storeBadge').textContent=CONFIG.STORE_NAME; toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
+  saveSettings(){ CONFIG.STORE_NAME=$('#setStore').value; CONFIG.CURRENCY=$('#setCur').value; localStorage_set('ksv-store',CONFIG.STORE_NAME); localStorage_set('ksv-cur',CONFIG.CURRENCY); localStorage_set('ksv-logo',this.logo||''); this.applyLogo(this.logo); $('#storeBadge').textContent=CONFIG.STORE_NAME; toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
   connectSheets(){ CONFIG.APPS_SCRIPT_URL=$('#setUrl').value.trim(); CONFIG.TOKEN=$('#setToken').value.trim(); localStorage_set('ksv-url',CONFIG.APPS_SCRIPT_URL); localStorage_set('ksv-token',CONFIG.TOKEN); toast(CONFIG.APPS_SCRIPT_URL?'ບັນທຶກ & ເຊື່ອມຕໍ່ຖາວອນແລ້ວ':'ກັບໄປໂໝດ Demo','ok'); App.route(); },
   async testSheets(){
     const url=$('#setUrl').value.trim(); if(!url){toast('ກະລຸນາໃສ່ URL ກ່ອນ','err');return;}
@@ -2776,6 +2827,7 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='Escape'){ closeModal(); }
 });
 /* ຈຳລະຫັດ: ຖ້າເຄີຍຕິກໄວ້ ໃຫ້ເຂົ້າສູ່ລະບົບອັດຕະໂນມັດ */
+(function(){ try{ App.applyLogo(App.logo); }catch(e){} })();
 (function(){ try{ const r=localStorage_get('ksv-remember',''); if(!r) return; const c=JSON.parse(r);
   const u=document.getElementById('lg-user'), pw=document.getElementById('lg-pass'), cb=document.getElementById('lg-remember');
   if(u)u.value=c.u||''; if(pw)pw.value=c.p||''; if(cb)cb.checked=true; App.login();

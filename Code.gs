@@ -17,7 +17,7 @@ var TOKEN = "ksv-71be638f-9a14cb-2026"; // ⚠ ໃຫ້ກົງກັບ CONFI
 
 // ບັນຊີຜູ້ໃຊ້ (ກວດ login ຝັ່ງ server — ລະຫັດບໍ່ຢູ່ໃນ client)
 var USERS = [
-  { username: "ksv", password: "k1987", name: "ksv", role: "Admin" }
+  { username: "ksv", password: "k1987", name: "ksv", role: "Admin", perms: "all" }
 ];
 
 // ໂຄງສ້າງຖັນ (headers) ຂອງແຕ່ລະຕາຕະລາງ
@@ -35,7 +35,7 @@ var SCHEMA = {
   cuslevels: ["id","name","min","note"],
   contacts:  ["id","date","customer","channel","reason","note","status"],
   sales:     ["id","runno","date","cashier","customer","items","subtotal","discount","total","paid","paytype","branch","note","lines","status"],
-  users:     ["id","name","role","branch","username","password"],
+  users:     ["id","name","role","branch","username","password","perms"],
   employees: ["id","name","position","phone","salary"],
   purchase:  ["id","no","ref","vendor","items","total","tax","note","date","recorded","imported"],
   vendors:   ["id","name","phone","address","note"],
@@ -67,7 +67,12 @@ function handle(e) {
       } catch (e) {}
       // 2) ສຳຮອງ: ບັນຊີ admin ໃນໂຄ້ດ (ເຂົ້າໄດ້ສະເໝີ)
       if (!hit) hit = USERS.filter(function (x) { return x.username === lu && x.password === lp; })[0];
-      return out({ data: hit ? { ok: true, name: hit.name, role: hit.role } : { ok: false } });
+      if (hit) {
+        var prm = hit.perms;
+        if (!prm && /Admin|ຜູ້ຈັດການ/.test(String(hit.role || ""))) prm = "all";
+        return out({ data: { ok: true, name: hit.name, role: hit.role, perms: prm || "" } });
+      }
+      return out({ data: { ok: false } });
     }
 
     var table = body.table;
