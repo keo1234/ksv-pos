@@ -1794,7 +1794,7 @@ const App = {
     const b=this.state.lastBill; if(!b){toast('ບໍ່ມີຂໍ້ມູນບິນ','err');return;}
     let lines=[]; try{ lines=typeof b.lines==='string'?JSON.parse(b.lines||'[]'):(b.lines||[]); }catch(e){ lines=[]; }
     const total=+b.total||0; const vat=+b.vat||0; const beforeVAT=(b.beforeVat!=null&&b.beforeVat!=='')?+b.beforeVat:(total-vat); const vrate=+b.vatRate||0;
-    const _qrs=(App.qr||[]).filter(q=>q&&q.img); const qrHtml=_qrs.length?`<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:6px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap">${_qrs.map(q=>`<div class="center" style="font-size:11px"><img src="${esc(q.img)}" style="width:96px;height:96px;object-fit:contain"><div>${esc(q.name||'')}</div></div>`).join('')}</div></div>`:'';
+    const _qrs=(App.qr||[]).filter(q=>q&&q.img); const qrHtml=_qrs.length?`<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:8px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="display:flex;justify-content:center;gap:2cm;flex-wrap:wrap">${_qrs.map(q=>`<div class="center" style="font-size:11px"><img src="${esc(q.img)}" style="width:2.5cm;height:2.5cm;object-fit:contain"><div style="margin-top:2px">${esc(q.name||'')}</div></div>`).join('')}</div></div>`:'';
     const head=`<div class="center">${App.logo?`<img class="logo" src="${esc(App.logo)}">`:''}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
       ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div>Runno: ${esc(b.runno)}</div><div class="bold">ໃບຮັບເງິນ</div></div>`;
     const meta=`<div style="display:flex;justify-content:space-between;font-size:12px;margin:6px 0"><div>ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}</div><div>ວັນທີ: ${esc(b.date)}</div></div><div style="font-size:12px;margin-bottom:6px">ພະນັກງານ: ${esc(b.cashier)}</div>`;
@@ -1816,7 +1816,8 @@ const App = {
           <td style="width:70%"><div style="display:flex;gap:12px;align-items:center">
             ${App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`}
             <div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}<div style="font-size:12px">${App.shop.phone?'ໂທ: '+esc(App.shop.phone):''}${App.shop.acct?' · ບັນຊີ: '+esc(App.shop.acct):''}</div>${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}</div></div></td>
-          <td class="right" style="vertical-align:top"><div class="bold" style="font-size:20px">ໃບຮັບເງິນ</div></td></tr></table>
+          <td style="vertical-align:top"></td></tr></table>
+        <div class="center bold" style="font-size:22px;margin-bottom:8px">ໃບຮັບເງິນ</div>
         <table style="margin-bottom:8px"><tr>
           <td style="border:1px solid #000;padding:8px;width:60%">ຊື່ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}<br>ທີ່ຢູ່: ......<br>ເບີໂທ: ......</td>
           <td style="border:1px solid #000;padding:8px">ເລກທີ: ${esc(b.runno)}<br>ວັນທີ: ${esc(b.date)}<br>ພະນັກງານ: ${esc(b.cashier)}</td></tr></table>
@@ -1835,11 +1836,7 @@ const App = {
         ${qrHtml}
       </div>`;
     }
-    const pa=document.getElementById('printArea'); pa.innerHTML=html;
-    document.body.classList.add('printing');
-    const done=()=>{ document.body.classList.remove('printing'); pa.innerHTML=''; window.removeEventListener('afterprint',done); };
-    window.addEventListener('afterprint',done);
-    setTimeout(()=>window.print(),60);
+    this._printHTML(html);
     closeModal();
   },
 
@@ -2787,40 +2784,74 @@ const App = {
   },
   _printHTML(html){
     const pa=document.getElementById('printArea'); pa.innerHTML=html;
-    document.body.classList.add('printing');
-    const done=()=>{ document.body.classList.remove('printing'); pa.innerHTML=''; window.removeEventListener('afterprint',done); };
-    window.addEventListener('afterprint',done);
-    setTimeout(()=>window.print(),60);
+    const imgs=[...pa.querySelectorAll('img')];
+    const ready=Promise.all(imgs.map(im=> (im.complete&&im.naturalWidth)?Promise.resolve():new Promise(res=>{ im.onload=res; im.onerror=res; })));
+    const go=()=>{ document.body.classList.add('printing'); const done=()=>{ document.body.classList.remove('printing'); pa.innerHTML=''; window.removeEventListener('afterprint',done); }; window.addEventListener('afterprint',done); window.print(); };
+    Promise.race([ready, new Promise(res=>setTimeout(res,2500))]).then(()=>setTimeout(go,80));
   },
   repairReceipt(id){
+    modal(`<div class="modal-head"><h3 class="lo">ພິມໃບຮັບສ້ອມແປງ</h3><button class="icon-btn" style="margin-left:auto" onclick="closeModal()">${I.close}</button></div>
+      <div class="modal-body" style="display:flex;gap:12px;justify-content:center;padding:24px;flex-wrap:wrap">
+        <button class="btn lo" style="flex:1;min-width:160px;justify-content:center;padding:16px;background:var(--brand);color:#fff;border:none" onclick="App.repairPrint('${id}','slip')">${I.printer} ໃບນ້ອຍ (Slip)</button>
+        <button class="btn lo" style="flex:1;min-width:160px;justify-content:center;padding:16px;background:#2f7df6;color:#fff;border:none" onclick="App.repairPrint('${id}','a4')">${I.printer} ໃບໃຫຍ່ (A4)</button>
+      </div>`);
+  },
+  repairPrint(id,size){
     const r=(App.state.data.repair||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; }
-    const logo=App.logo?`<img src="${esc(App.logo)}" style="width:54px;height:54px;object-fit:contain;border-radius:8px">`:'';
-    const html=`<div class="rc slip">
-      <div class="center">${logo}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
-        <div>ໂທ: 020-XXXXXXX</div><div class="bold" style="margin-top:4px">ໃບຮັບສ້ອມແປງ</div>
-        <div class="bold" style="font-size:15px">${esc(r.runno||r.id)}</div></div>
-      <hr>
-      <table>
-        <tr><td>ລູກຄ້າ</td><td class="right">${esc(r.name)||'-'}</td></tr>
-        <tr><td>ເບີໂທ</td><td class="right">${esc(r.phone)||'-'}</td></tr>
-        <tr><td>ສິນຄ້າ</td><td class="right">${esc(r.product)} ${esc(r.brand)} ${esc(r.model)}</td></tr>
-        <tr><td>ສີ</td><td class="right">${esc(r.color)||'-'}</td></tr>
-        <tr><td>S/N</td><td class="right">${esc(r.sn)||'-'}</td></tr>
-      </table>
-      <hr>
-      <div style="font-size:12px"><b>ອາການເສຍ:</b> ${esc(r.symptom)||'-'}</div>
-      <div style="font-size:12px"><b>ສະພາບເຄື່ອງ:</b> ${esc(r.condition)||'-'}</div>
-      <div style="font-size:12px"><b>ອຸປະກອນທີ່ນຳມາ:</b> ${esc(r.accessories)||'-'}</div>
-      <hr>
-      <table>
-        <tr class="bold"><td>ປະເມີນຄ່າສ້ອມ</td><td class="right">${fmt(r.cost)} ${CONFIG.CURRENCY}</td></tr>
-        <tr><td>ວັນນັດຮັບ</td><td class="right">${fmtDate(r.duedate)||'-'}</td></tr>
-        <tr><td>ສະຖານະ</td><td class="right">${esc(r.status)||'-'}</td></tr>
-        <tr><td>ວັນທີຮັບເຄື່ອງ</td><td class="right">${fmtDate(r.recorded)||''}</td></tr>
-      </table>
-      <hr>
-      <div class="center" style="font-size:11px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ **<br>ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ · ຂອບໃຈທີ່ໃຊ້ບໍລິການ</div>
-    </div>`;
+    closeModal();
+    const _qrs=(App.qr||[]).filter(q=>q&&q.img);
+    const qrHtml=_qrs.length?`<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:8px">ສະແກນ QR ເພື່ອຊຳລະຄ່າສ້ອມ</div><div style="display:flex;justify-content:center;gap:2cm;flex-wrap:wrap">${_qrs.map(q=>`<div class="center" style="font-size:11px"><img src="${esc(q.img)}" style="width:2.5cm;height:2.5cm;object-fit:contain"><div style="margin-top:2px">${esc(q.name||'')}</div></div>`).join('')}</div></div>`:'';
+    const shopLines=`${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div style="font-size:12px">ໂທ: ${esc(App.shop.phone)}</div>`:''}${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}`;
+    let html;
+    if(size==='a4'){
+      const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
+      html=`<div class="rc a4">
+        <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td></tr></table>
+        <div class="center bold" style="font-size:22px;margin-bottom:4px">ໃບຮັບສ້ອມແປງ</div>
+        <div class="center" style="margin-bottom:10px">ເລກທີ: <b>${esc(r.runno||r.id)}</b></div>
+        <table style="margin-bottom:8px"><tr>
+          <td style="border:1px solid #000;padding:8px;width:50%">ລູກຄ້າ: ${esc(r.name)||'-'}<br>ເບີໂທ: ${esc(r.phone)||'-'}<br>ທີ່ຢູ່: ${esc(r.address)||'-'}</td>
+          <td style="border:1px solid #000;padding:8px">ວັນທີຮັບເຄື່ອງ: ${fmtDate(r.recorded)||'-'}<br>ວັນນັດຮັບ: ${fmtDate(r.duedate)||'-'}<br>ສະຖານະ: ${esc(r.status)||'-'}</td></tr></table>
+        <table style="margin-bottom:8px"><tr><td style="border:1px solid #000;padding:8px">
+          <b>ສິນຄ້າ:</b> ${esc(r.product)} ${esc(r.brand)} ${esc(r.model)} · <b>ສີ:</b> ${esc(r.color)||'-'} · <b>S/N:</b> ${esc(r.sn)||'-'}<br>
+          <b>ອາການເສຍ:</b> ${esc(r.symptom)||'-'}<br>
+          <b>ສະພາບເຄື່ອງ:</b> ${esc(r.condition)||'-'}<br>
+          <b>ອຸປະກອນທີ່ນຳມາ:</b> ${esc(r.accessories)||'-'}</td></tr></table>
+        <table style="margin-bottom:8px"><tr><td class="right bold" style="border:1px solid #000;padding:10px;font-size:15px">ປະເມີນຄ່າສ້ອມ: ${fmt(r.cost)} ${CONFIG.CURRENCY}</td></tr></table>
+        <table style="margin-top:30px;text-align:center"><tr><td>......................<br>ຜູ້ຮັບເຄື່ອງ</td><td>......................<br>ລູກຄ້າ</td></tr></table>
+        <div class="center" style="font-size:12px;margin-top:10px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ · ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ **</div>
+        ${qrHtml}
+      </div>`;
+    } else {
+      const logo=App.logo?`<img src="${esc(App.logo)}" style="width:54px;height:54px;object-fit:contain;border-radius:8px">`:'';
+      html=`<div class="rc slip">
+        <div class="center">${logo}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
+          ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div class="bold" style="margin-top:4px">ໃບຮັບສ້ອມແປງ</div>
+          <div class="bold" style="font-size:15px">${esc(r.runno||r.id)}</div></div>
+        <hr>
+        <table>
+          <tr><td>ລູກຄ້າ</td><td class="right">${esc(r.name)||'-'}</td></tr>
+          <tr><td>ເບີໂທ</td><td class="right">${esc(r.phone)||'-'}</td></tr>
+          <tr><td>ສິນຄ້າ</td><td class="right">${esc(r.product)} ${esc(r.brand)} ${esc(r.model)}</td></tr>
+          <tr><td>ສີ</td><td class="right">${esc(r.color)||'-'}</td></tr>
+          <tr><td>S/N</td><td class="right">${esc(r.sn)||'-'}</td></tr>
+        </table>
+        <hr>
+        <div style="font-size:12px"><b>ອາການເສຍ:</b> ${esc(r.symptom)||'-'}</div>
+        <div style="font-size:12px"><b>ສະພາບເຄື່ອງ:</b> ${esc(r.condition)||'-'}</div>
+        <div style="font-size:12px"><b>ອຸປະກອນທີ່ນຳມາ:</b> ${esc(r.accessories)||'-'}</div>
+        <hr>
+        <table>
+          <tr class="bold"><td>ປະເມີນຄ່າສ້ອມ</td><td class="right">${fmt(r.cost)} ${CONFIG.CURRENCY}</td></tr>
+          <tr><td>ວັນນັດຮັບ</td><td class="right">${fmtDate(r.duedate)||'-'}</td></tr>
+          <tr><td>ສະຖານະ</td><td class="right">${esc(r.status)||'-'}</td></tr>
+          <tr><td>ວັນທີຮັບເຄື່ອງ</td><td class="right">${fmtDate(r.recorded)||''}</td></tr>
+        </table>
+        <hr>
+        <div class="center" style="font-size:11px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ **<br>ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ · ຂອບໃຈທີ່ໃຊ້ບໍລິການ</div>
+        ${qrHtml}
+      </div>`;
+    }
     this._printHTML(html);
   },
 
