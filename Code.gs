@@ -41,7 +41,8 @@ var SCHEMA = {
   vendors:   ["id","name","phone","address","note"],
   repair:    ["id","runno","name","phone","address","product","brand","model","color","sn","condition","symptom","accessories","cost","duedate","status","recorded"],
   pawn:      ["id","no","date","customer","item","amount","interest","status"],
-  produce:   ["id","date","product","qty","note"]
+  produce:   ["id","date","product","qty","note"],
+  printjob:  ["id","runno","name","phone","orderdate","pickupdate","content","bgcolor","textcolor","size","price","note","status","recorded"]
 };
 
 function doGet(e)  { return handle(e); }
