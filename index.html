@@ -697,6 +697,7 @@ const DEMO = {
 /* ===================== HELPERS ===================== */
 const $ = s=>document.querySelector(s);
 const fmt = n => (Number(n)||0).toLocaleString('en-US');
+const fmtDate = v => { if(!v) return ''; const s=String(v).trim(); if(/T.*Z$/.test(s)){ const d=new Date(s); if(!isNaN(d)){ d.setUTCHours(d.getUTCHours()+7); return d.toISOString().slice(0,10); } } return s.slice(0,10); };
 /* ແປງຕົວເລກເປັນຄຳອ່ານພາສາລາວ (ກີບ) */
 function kipWords(num){
   num=Math.round(Number(num)||0); if(num===0) return 'ສູນກີບຖ້ວນ';
@@ -842,18 +843,24 @@ const App = {
   _hex2rgb(h){ h=h.replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; },
   _mix(h,target,amt){ const a=this._hex2rgb(h); const r=Math.round(a[0]+(target-a[0])*amt),g=Math.round(a[1]+(target-a[1])*amt),b=Math.round(a[2]+(target-a[2])*amt); return '#'+[r,g,b].map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,'0')).join(''); },
   logo: localStorage_get('ksv-logo',''),
+  shop: { phone:localStorage_get('ksv-phone',''), addr:localStorage_get('ksv-addr',''), acct:localStorage_get('ksv-acct',''), email:localStorage_get('ksv-email','') },
+  qr: (function(){ try{ return JSON.parse(localStorage_get('ksv-qr','[]'))||[]; }catch(e){ return []; } })(),
   applyLogo(src){
     document.querySelectorAll('.brandmark').forEach(el=>{
       if(src){ el.style.backgroundImage='url('+src+')'; el.style.color='transparent'; el.dataset.hadlogo='1'; }
       else { el.style.backgroundImage=''; el.style.color=''; if(el.dataset.hadlogo){ el.textContent='K'; } }
     });
   },
-  logoFromUrl(v){ this.logo=(v||'').trim(); this.applyLogo(this.logo); },
+  _driveDirect(u){ if(!u) return u; const m=String(u).match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?[^]*?id=|thumbnail\?[^]*?id=)([A-Za-z0-9_-]+)/); return m?('https://drive.google.com/thumbnail?id='+m[1]+'&sz=w512'):u; },
+  logoFromUrl(v){ this.logo=this._driveDirect((v||'').trim()); this.applyLogo(this.logo); },
   logoFromFile(input){ const fl=input.files&&input.files[0]; if(!fl)return;
     if(fl.size>900000){ toast('ຮູບໃຫຍ່ເກີນ (ສູງສຸດ ~900KB) — ຫຍໍ້ຮູບກ່ອນ','err'); return; }
     const rd=new FileReader(); rd.onload=e=>{ this.logo=e.target.result; this.applyLogo(this.logo); const u=$('#setLogoUrl'); if(u)u.value=''; toast('ໂຫຼດຮູບແລ້ວ — ກົດ "ບັນທຶກ" ເພື່ອບັນທຶກຖາວອນ','ok'); }; rd.readAsDataURL(fl);
   },
   logoClear(){ this.logo=''; this.applyLogo(''); const u=$('#setLogoUrl'); if(u)u.value=''; },
+  _qrSet(i,key,val){ this.qr[i]=this.qr[i]||{}; if(key==='img') val=this._driveDirect((val||'').trim()); this.qr[i][key]=val; if(key==='img'){ const p=$('#qrPrev'+i); if(p)p.style.backgroundImage=val?'url('+val+')':''; } },
+  _qrFile(i,input){ const fl=input.files&&input.files[0]; if(!fl)return; if(fl.size>500000){ toast('ຮູບ QR ໃຫຍ່ເກີນ (~500KB)','err'); return; } const rd=new FileReader(); rd.onload=e=>{ this.qr[i]=this.qr[i]||{}; this.qr[i].img=e.target.result; const p=$('#qrPrev'+i); if(p)p.style.backgroundImage='url('+e.target.result+')'; toast('ໂຫຼດ QR ແລ້ວ — ກົດ "ບັນທຶກ QR"','ok'); }; rd.readAsDataURL(fl); },
+  saveQR(){ localStorage_set('ksv-qr',JSON.stringify(this.qr)); toast('ບັນທຶກ QR ແລ້ວ','ok'); },
   applyBrand(hex){
     const rs=document.documentElement.style;
     rs.setProperty('--brand',hex);
@@ -1223,6 +1230,10 @@ const App = {
             <div class="form-grid">
               <div class="fg full"><label>ຊື່ຮ້ານ</label><input class="inp" id="setStore" value="${esc(CONFIG.STORE_NAME)}"></div>
               <div class="fg"><label>ສະກຸນເງິນ</label><input class="inp" id="setCur" value="${esc(CONFIG.CURRENCY)}"></div>
+              <div class="fg"><label>ເບີໂທ</label><input class="inp" id="setPhone" value="${esc(App.shop.phone)}"></div>
+              <div class="fg full"><label>ທີ່ຢູ່ / ທີ່ຕັ້ງ</label><input class="inp" id="setAddr" value="${esc(App.shop.addr)}"></div>
+              <div class="fg"><label>ເລກບັນຊີ</label><input class="inp" id="setAcct" value="${esc(App.shop.acct)}"></div>
+              <div class="fg"><label>ອີເມວ</label><input class="inp" id="setEmail" value="${esc(App.shop.email)}"></div>
             </div>
             <div class="fg full" style="margin-top:12px"><label>ໂລໂກ້ຮ້ານ (ໃສ່ລິ້ງ ຫຼື ອັບຮູບ)</label>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -1233,6 +1244,25 @@ const App = {
               </div>
             </div>
             <button class="btn btn-primary lo" style="margin-top:16px" onclick="App.saveSettings()">${I.check} ບັນທຶກ</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>${I.qr}<span class="lo">QR ຊຳລະເງິນ (ສູງສຸດ 4 ທະນາຄານ)</span></h3></div>
+          <div class="modal-body">
+            <p class="lo muted" style="font-size:12px;margin-bottom:10px">QR ເຫຼົ່ານີ້ຈະພິມຢູ່ດ້ານລຸ່ມໃບບິນ ໃຫ້ລູກຄ້າສະແກນຊຳລະ.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
+              ${[0,1,2,3].map(i=>{const q=App.qr[i]||{};return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px">
+                <input class="inp" placeholder="ຊື່ທະນາຄານ ${i+1}" value="${esc(q.name||'')}" oninput="App._qrSet(${i},'name',this.value)" style="margin-bottom:8px">
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                  <div id="qrPrev${i}" style="width:54px;height:54px;flex:none;border-radius:8px;border:1px solid var(--line);background-size:cover;background-position:center;${q.img?`background-image:url(${q.img})`:''}"></div>
+                  <div style="flex:1">
+                    <input class="inp" placeholder="ລິ້ງ QR (https://...)" value="${esc(q.img&&q.img.indexOf('data:')!==0?q.img:'')}" oninput="App._qrSet(${i},'img',this.value)" style="margin-bottom:6px;font-size:12px">
+                    <label class="btn lo" style="cursor:pointer;font-size:12px;padding:6px 10px">${I.folder} ອັບຮູບ QR<input type="file" accept="image/*" style="display:none" onchange="App._qrFile(${i},this)"></label>
+                  </div>
+                </div>
+              </div>`;}).join('')}
+            </div>
+            <button class="btn btn-primary lo" style="margin-top:14px" onclick="App.saveQR()">${I.check} ບັນທຶກ QR</button>
           </div>
         </div>
         <div class="card">
@@ -1296,7 +1326,7 @@ const App = {
           <td class="lo">${esc(r.product)} <span class="muted">${esc(r.brand)} ${esc(r.model)}</span></td>
           <td class="lo">${esc(r.symptom)||'-'}</td>
           <td class="num">${fmt(r.cost)} <span class="muted">${CONFIG.CURRENCY}</span></td>
-          <td class="num">${esc(r.duedate)||'-'}</td>
+          <td class="num">${fmtDate(r.duedate)||'-'}</td>
           <td><select class="inp" style="min-width:118px;height:34px;padding:4px 8px" onchange="App.repairStatus('${r.id}',this.value)">${STA.map(st=>`<option ${r.status===st?'selected':''}>${st}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:6px;justify-content:flex-end">
             <button class="btn btn-ico btn-ghost" onclick="App.repairReceipt('${r.id}')" title="ພິມບິນໃຫ້ລູກຄ້າ" style="color:var(--brand-2)">${I.printer}</button>
@@ -1764,8 +1794,9 @@ const App = {
     const b=this.state.lastBill; if(!b){toast('ບໍ່ມີຂໍ້ມູນບິນ','err');return;}
     let lines=[]; try{ lines=typeof b.lines==='string'?JSON.parse(b.lines||'[]'):(b.lines||[]); }catch(e){ lines=[]; }
     const total=+b.total||0; const vat=+b.vat||0; const beforeVAT=(b.beforeVat!=null&&b.beforeVat!=='')?+b.beforeVat:(total-vat); const vrate=+b.vatRate||0;
-    const head=`<div class="center"><img class="logo" src="" onerror="this.style.display='none'"><div class="bold" style="font-size:16px">KSV POS</div>
-      <div>${esc(CONFIG.STORE_NAME)}</div><div>ໂທ: 020-XXXXXXX</div><div>Runno: ${esc(b.runno)}</div><div class="bold">ໃບຮັບເງິນ</div></div>`;
+    const _qrs=(App.qr||[]).filter(q=>q&&q.img); const qrHtml=_qrs.length?`<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:6px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap">${_qrs.map(q=>`<div class="center" style="font-size:11px"><img src="${esc(q.img)}" style="width:96px;height:96px;object-fit:contain"><div>${esc(q.name||'')}</div></div>`).join('')}</div></div>`:'';
+    const head=`<div class="center">${App.logo?`<img class="logo" src="${esc(App.logo)}">`:''}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
+      ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div>Runno: ${esc(b.runno)}</div><div class="bold">ໃບຮັບເງິນ</div></div>`;
     const meta=`<div style="display:flex;justify-content:space-between;font-size:12px;margin:6px 0"><div>ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}</div><div>ວັນທີ: ${esc(b.date)}</div></div><div style="font-size:12px;margin-bottom:6px">ພະນັກງານ: ${esc(b.cashier)}</div>`;
     if(size==='slip'){
       const rows=lines.map(l=>`<tr><td colspan="3" style="padding-top:4px">${esc(l.name)}</td></tr>
@@ -1777,14 +1808,14 @@ const App = {
         <tr class="bold"><td>ລວມທັງໝົດ</td><td class="right">${fmt(total)}</td></tr>
         <tr><td>ຮັບເງິນ</td><td class="right">${fmt(b.paid)}</td></tr>
         <tr><td>ເງິນທອນ</td><td class="right">${fmt(Math.max(0,(+b.paid)-total))}</td></tr></table>
-        <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div></div>`;
+        <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div>${qrHtml}</div>`;
     } else {
       const rows=lines.map((l,i)=>`<tr><td class="center">${i+1}</td><td>${esc(l.name)}</td><td class="center">${l.qty}</td><td class="center">${esc(l.unit)}</td><td class="right">${fmt(l.price)}</td><td class="right">${fmt(l.disc)}</td><td class="right">${fmt(l.total)}</td></tr>`).join('');
       var html=`<div class="rc a4">
         <table style="margin-bottom:8px"><tr>
           <td style="width:70%"><div style="display:flex;gap:12px;align-items:center">
-            <div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>
-            <div><div class="bold" style="font-size:17px">KSV POS</div><div>${esc(CONFIG.STORE_NAME)}</div><div>ໂທ: 020-XXXXXXX · ເລກບັນຊີ: 00000000000</div></div></div></td>
+            ${App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`}
+            <div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}<div style="font-size:12px">${App.shop.phone?'ໂທ: '+esc(App.shop.phone):''}${App.shop.acct?' · ບັນຊີ: '+esc(App.shop.acct):''}</div>${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}</div></div></td>
           <td class="right" style="vertical-align:top"><div class="bold" style="font-size:20px">ໃບຮັບເງິນ</div></td></tr></table>
         <table style="margin-bottom:8px"><tr>
           <td style="border:1px solid #000;padding:8px;width:60%">ຊື່ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}<br>ທີ່ຢູ່: ......<br>ເບີໂທ: ......</td>
@@ -1801,6 +1832,7 @@ const App = {
         <table style="margin-top:26px;text-align:center"><tr>
           <td>......................<br>ຜູ້ສັ່ງສິນຄ້າ</td><td>......................<br>ຜູ້ຮັບສິນຄ້າ</td><td>......................<br>ຜູ້ອະນຸມັດ</td></tr></table>
         <div style="font-size:11px;margin-top:10px">ສິນຄ້າທີ່ຊື້ແລ້ວ ສາມາດປ່ຽນ-ຄືນພາຍໃນ 3 ວັນ ພ້ອມໃບບິນ. ຮັບປະກັນຕາມເງື່ອນໄຂຮ້ານ.</div>
+        ${qrHtml}
       </div>`;
     }
     const pa=document.getElementById('printArea'); pa.innerHTML=html;
@@ -2727,7 +2759,8 @@ const App = {
       {k:'symptom',l:'ອາການເສຍ',v:r.symptom,t:'textarea',full:1},
       {k:'accessories',l:'ອຸປະກອນທີ່ນຳມາດ້ວຍ',v:r.accessories,full:1},
       {k:'cost',l:'ປະເມີນຄ່າສ້ອມແປງ',v:r.cost,t:'number'},
-      {k:'duedate',l:'ວັນນັດຮັບສິນຄ້າ',v:r.duedate||new Date(Date.now()+7*864e5).toISOString().slice(0,10),t:'date'},
+      {k:'recorded',l:'ວັນທີຮັບເຄື່ອງ',v:fmtDate(r.recorded)||new Date().toISOString().slice(0,10),t:'date'},
+      {k:'duedate',l:'ວັນນັດຮັບສິນຄ້າ',v:fmtDate(r.duedate)||new Date(Date.now()+7*864e5).toISOString().slice(0,10),t:'date'},
     ],"App.saveRepair('"+(id||'')+"')",true));
   },
   async saveRepair(id){
@@ -2735,11 +2768,11 @@ const App = {
     try{
       if(id){
         const cur=(App.state.data.repair||[]).find(x=>x.id===id)||{};
-        row.id=id; row.runno=cur.runno; row.status=cur.status; row.recorded=cur.recorded;
+        row.id=id; row.runno=cur.runno; row.status=cur.status;
         await Store.update('repair',row); toast('ບັນທຶກການແກ້ໄຂແລ້ວ','ok');
       } else {
         row.runno='RP-'+String(Date.now()).slice(-5); row.status='ມາໃໝ່';
-        row.recorded=new Date().toISOString().slice(0,16).replace('T',' ');
+        if(!row.recorded) row.recorded=new Date().toISOString().slice(0,10);
         await Store.create('repair',row); toast('ເພີ່ມລາຍການສ້ອມແປງແລ້ວ','ok');
       }
       App.state.data.repair=await Store.list('repair'); closeModal(); App.route();
@@ -2781,9 +2814,9 @@ const App = {
       <hr>
       <table>
         <tr class="bold"><td>ປະເມີນຄ່າສ້ອມ</td><td class="right">${fmt(r.cost)} ${CONFIG.CURRENCY}</td></tr>
-        <tr><td>ວັນນັດຮັບ</td><td class="right">${esc(r.duedate)||'-'}</td></tr>
+        <tr><td>ວັນນັດຮັບ</td><td class="right">${fmtDate(r.duedate)||'-'}</td></tr>
         <tr><td>ສະຖານະ</td><td class="right">${esc(r.status)||'-'}</td></tr>
-        <tr><td>ວັນທີຮັບເຄື່ອງ</td><td class="right">${esc(r.recorded)||''}</td></tr>
+        <tr><td>ວັນທີຮັບເຄື່ອງ</td><td class="right">${fmtDate(r.recorded)||''}</td></tr>
       </table>
       <hr>
       <div class="center" style="font-size:11px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ **<br>ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ · ຂອບໃຈທີ່ໃຊ້ບໍລິການ</div>
@@ -2792,7 +2825,10 @@ const App = {
   },
 
   /* ---------- SETTINGS ---------- */
-  saveSettings(){ CONFIG.STORE_NAME=$('#setStore').value; CONFIG.CURRENCY=$('#setCur').value; localStorage_set('ksv-store',CONFIG.STORE_NAME); localStorage_set('ksv-cur',CONFIG.CURRENCY); localStorage_set('ksv-logo',this.logo||''); this.applyLogo(this.logo); $('#storeBadge').textContent=CONFIG.STORE_NAME; toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
+  saveSettings(){ CONFIG.STORE_NAME=$('#setStore').value; CONFIG.CURRENCY=$('#setCur').value; localStorage_set('ksv-store',CONFIG.STORE_NAME); localStorage_set('ksv-cur',CONFIG.CURRENCY); localStorage_set('ksv-logo',this.logo||''); this.applyLogo(this.logo);
+    this.shop={phone:(($('#setPhone')||{}).value||''), addr:(($('#setAddr')||{}).value||''), acct:(($('#setAcct')||{}).value||''), email:(($('#setEmail')||{}).value||'')};
+    localStorage_set('ksv-phone',this.shop.phone); localStorage_set('ksv-addr',this.shop.addr); localStorage_set('ksv-acct',this.shop.acct); localStorage_set('ksv-email',this.shop.email);
+    $('#storeBadge').textContent=CONFIG.STORE_NAME; toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
   connectSheets(){ CONFIG.APPS_SCRIPT_URL=$('#setUrl').value.trim(); CONFIG.TOKEN=$('#setToken').value.trim(); localStorage_set('ksv-url',CONFIG.APPS_SCRIPT_URL); localStorage_set('ksv-token',CONFIG.TOKEN); toast(CONFIG.APPS_SCRIPT_URL?'ບັນທຶກ & ເຊື່ອມຕໍ່ຖາວອນແລ້ວ':'ກັບໄປໂໝດ Demo','ok'); App.route(); },
   async testSheets(){
     const url=$('#setUrl').value.trim(); if(!url){toast('ກະລຸນາໃສ່ URL ກ່ອນ','err');return;}
