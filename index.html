@@ -1298,7 +1298,11 @@ const App = {
           <td class="num">${fmt(r.cost)} <span class="muted">${CONFIG.CURRENCY}</span></td>
           <td class="num">${esc(r.duedate)||'-'}</td>
           <td><select class="inp" style="min-width:118px;height:34px;padding:4px 8px" onchange="App.repairStatus('${r.id}',this.value)">${STA.map(st=>`<option ${r.status===st?'selected':''}>${st}</option>`).join('')}</select></td>
-          <td>${rowActions("App.editRepair('"+r.id+"')","App.delRow('repair','"+r.id+"')")}</td></tr>`
+          <td><div style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="btn btn-ico btn-ghost" onclick="App.repairReceipt('${r.id}')" title="ພິມບິນໃຫ້ລູກຄ້າ" style="color:var(--brand-2)">${I.printer}</button>
+            <button class="btn btn-ico btn-ghost" onclick="App.editRepair('${r.id}')" title="ແກ້ໄຂ" style="color:var(--gold)">${I.edit}</button>
+            <button class="btn btn-ico btn-ghost" onclick="App.delRow('repair','${r.id}')" title="ລຶບ" style="color:var(--danger)">${I.trash}</button>
+          </div></td></tr>`
       });
     },
 
@@ -2747,6 +2751,44 @@ const App = {
       const r=(App.state.data.repair||[]).find(x=>x.id===id); if(r)r.status=val;
       toast('ອັບເດດສະຖານະເປັນ "'+val+'"','ok');
     }catch(e){ toast('ຜິດພາດ','err'); }
+  },
+  _printHTML(html){
+    const pa=document.getElementById('printArea'); pa.innerHTML=html;
+    document.body.classList.add('printing');
+    const done=()=>{ document.body.classList.remove('printing'); pa.innerHTML=''; window.removeEventListener('afterprint',done); };
+    window.addEventListener('afterprint',done);
+    setTimeout(()=>window.print(),60);
+  },
+  repairReceipt(id){
+    const r=(App.state.data.repair||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; }
+    const logo=App.logo?`<img src="${esc(App.logo)}" style="width:54px;height:54px;object-fit:contain;border-radius:8px">`:'';
+    const html=`<div class="rc slip">
+      <div class="center">${logo}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
+        <div>ໂທ: 020-XXXXXXX</div><div class="bold" style="margin-top:4px">ໃບຮັບສ້ອມແປງ</div>
+        <div class="bold" style="font-size:15px">${esc(r.runno||r.id)}</div></div>
+      <hr>
+      <table>
+        <tr><td>ລູກຄ້າ</td><td class="right">${esc(r.name)||'-'}</td></tr>
+        <tr><td>ເບີໂທ</td><td class="right">${esc(r.phone)||'-'}</td></tr>
+        <tr><td>ສິນຄ້າ</td><td class="right">${esc(r.product)} ${esc(r.brand)} ${esc(r.model)}</td></tr>
+        <tr><td>ສີ</td><td class="right">${esc(r.color)||'-'}</td></tr>
+        <tr><td>S/N</td><td class="right">${esc(r.sn)||'-'}</td></tr>
+      </table>
+      <hr>
+      <div style="font-size:12px"><b>ອາການເສຍ:</b> ${esc(r.symptom)||'-'}</div>
+      <div style="font-size:12px"><b>ສະພາບເຄື່ອງ:</b> ${esc(r.condition)||'-'}</div>
+      <div style="font-size:12px"><b>ອຸປະກອນທີ່ນຳມາ:</b> ${esc(r.accessories)||'-'}</div>
+      <hr>
+      <table>
+        <tr class="bold"><td>ປະເມີນຄ່າສ້ອມ</td><td class="right">${fmt(r.cost)} ${CONFIG.CURRENCY}</td></tr>
+        <tr><td>ວັນນັດຮັບ</td><td class="right">${esc(r.duedate)||'-'}</td></tr>
+        <tr><td>ສະຖານະ</td><td class="right">${esc(r.status)||'-'}</td></tr>
+        <tr><td>ວັນທີຮັບເຄື່ອງ</td><td class="right">${esc(r.recorded)||''}</td></tr>
+      </table>
+      <hr>
+      <div class="center" style="font-size:11px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ **<br>ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ · ຂອບໃຈທີ່ໃຊ້ບໍລິການ</div>
+    </div>`;
+    this._printHTML(html);
   },
 
   /* ---------- SETTINGS ---------- */
