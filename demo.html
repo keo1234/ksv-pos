@@ -387,6 +387,9 @@ html[data-theme=dark] .banner.warn{background:#231b08;color:#e6bf6a;border-color
 </style>
 </head>
 <body>
+<script>
+window.addEventListener('error',function(e){try{var m=(e&&e.message)||(e&&e.error&&e.error.message)||'Unknown error';var d=document.getElementById('ksv-err');if(!d){d=document.createElement('div');d.id='ksv-err';d.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;background:#fff;color:#b00020;padding:18px;font:14px/1.6 sans-serif;overflow:auto';(document.body||document.documentElement).appendChild(d);}d.innerHTML='<b>ເກີດຂໍ້ຜິດພາດ — ຖ່າຍຮູປໝ້ານີ້ສົ່ງໃຫ້ນັກພັດທະນາ</b><br><br><b>Error:</b> '+String(m)+'<br>'+(e.filename?('<b>File:</b> '+e.filename+' : '+e.lineno):'')+'<br><br>ສ່ວນຫຼາຍແມ່ນ browser ເກົ່າ — ກະລຸນາໃຊ້ Chrome ລ່າສຸດ ຫຼື ອັບເດດ browser.';}catch(_){}}, true);
+</script>
 
 <!-- LOGIN -->
 <div id="login">
@@ -778,6 +781,7 @@ const App = {
     window.addEventListener('hashchange',()=>this.route());
     if(!location.hash) location.hash='#dashboard';
     this.route();
+    this.loadShopSettings();
     this.checkLowStock();
   },
   /* ---------- LOW STOCK ALERT ---------- */
@@ -826,7 +830,7 @@ const App = {
   async exportLowStock(){
     const list=await this.lowStockList();
     const keys=['barcode','name','category','zone','stock','unit','lowstock'];
-    const csv=[keys.join(',')].concat(list.map(r=>keys.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(','))).join('\n');
+    const csv=[keys.join(',')].concat(list.map(r=>keys.map(k=>'"'+String(r[k]==null?'':r[k]).replace(/"/g,'""')+'"').join(','))).join('\n');
     const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv); a.download='low_stock.csv'; a.click();
   },
   async autoPO(){
@@ -864,7 +868,33 @@ const App = {
   logoClear(){ this.logo=''; this.applyLogo(''); const u=$('#setLogoUrl'); if(u)u.value=''; },
   _qrSet(i,key,val){ this.qr[i]=this.qr[i]||{}; if(key==='img') val=this._driveDirect((val||'').trim()); this.qr[i][key]=val; if(key==='img'){ const p=$('#qrPrev'+i); if(p)p.style.backgroundImage=val?'url('+val+')':''; } },
   _qrFile(i,input){ const fl=input.files&&input.files[0]; if(!fl)return; if(fl.size>500000){ toast('ຮູບ QR ໃຫຍ່ເກີນ (~500KB)','err'); return; } const rd=new FileReader(); rd.onload=e=>{ this.qr[i]=this.qr[i]||{}; this.qr[i].img=e.target.result; const p=$('#qrPrev'+i); if(p)p.style.backgroundImage='url('+e.target.result+')'; toast('ໂຫຼດ QR ແລ້ວ — ກົດ "ບັນທຶກ QR"','ok'); }; rd.readAsDataURL(fl); },
-  saveQR(){ localStorage_set('ksv-qr',JSON.stringify(this.qr)); toast('ບັນທຶກ QR ແລ້ວ','ok'); },
+  saveQR(){ localStorage_set('ksv-qr',JSON.stringify(this.qr)); this.syncShopSettings(); toast('ບັນທຶກ QR ແລ້ວ','ok'); },
+  async loadShopSettings(){
+    if(!Store.online()) return;
+    try{
+      const rows=await Store.list('settings');
+      const s=(rows||[]).find(function(x){return x.id==='shop';});
+      if(!s) return;
+      if(s.storename){ CONFIG.STORE_NAME=s.storename; localStorage_set('ksv-store',s.storename); }
+      if(s.currency){ CONFIG.CURRENCY=s.currency; localStorage_set('ksv-cur',s.currency); }
+      this.shop={phone:s.phone||'',addr:s.addr||'',acct:s.acct||'',email:s.email||''};
+      localStorage_set('ksv-phone',this.shop.phone); localStorage_set('ksv-addr',this.shop.addr); localStorage_set('ksv-acct',this.shop.acct); localStorage_set('ksv-email',this.shop.email);
+      if(s.logo!=null&&s.logo!==''){ this.logo=s.logo; localStorage_set('ksv-logo',s.logo); this.applyLogo(s.logo); }
+      if(s.qr){ try{ this.qr=JSON.parse(s.qr)||[]; localStorage_set('ksv-qr',s.qr); }catch(e){} }
+      if(s.brand){ this.brand=s.brand; localStorage_set('ksv-brand',s.brand); this.applyBrand(s.brand); }
+      if(s.bg!=null&&s.bg!==''){ this.bg=s.bg; localStorage_set('ksv-bg',s.bg); this.applyBg(s.bg); }
+      const sb=$('#storeBadge'); if(sb) sb.textContent=CONFIG.STORE_NAME;
+    }catch(e){}
+  },
+  async syncShopSettings(){
+    if(!Store.online()) return;
+    try{
+      const row={id:'shop', storename:CONFIG.STORE_NAME, currency:CONFIG.CURRENCY, phone:this.shop.phone||'', addr:this.shop.addr||'', acct:this.shop.acct||'', email:this.shop.email||'', logo:this.logo||'', qr:JSON.stringify(this.qr||[]), brand:this.brand||'', bg:this.bg||''};
+      const rows=await Store.list('settings');
+      const exists=(rows||[]).some(function(x){return x.id==='shop';});
+      if(exists) await Store.update('settings',row); else await Store.create('settings',row);
+    }catch(e){}
+  },
   applyBrand(hex){
     const rs=document.documentElement.style;
     rs.setProperty('--brand',hex);
@@ -875,11 +905,11 @@ const App = {
       ? 'rgba('+rgb.join(',')+',0.16)' : 'rgba('+rgb.join(',')+',0.12)');
   },
   previewBrand(hex){ this.brand=hex; this.applyBrand(hex); },
-  saveBrand(){ localStorage_set('ksv-brand',this.brand); this.applyBrand(this.brand); toast('ບັນທຶກສີ Theme ແລ້ວ','ok'); },
+  saveBrand(){ localStorage_set('ksv-brand',this.brand); this.applyBrand(this.brand); this.syncShopSettings(); toast('ບັນທຶກສີ Theme ແລ້ວ','ok'); },
   bg: localStorage_get('ksv-bg',''),
   applyBg(hex){ if(hex) document.documentElement.style.setProperty('--bg',hex); else document.documentElement.style.removeProperty('--bg'); },
   previewBg(hex){ this.bg=hex; this.applyBg(hex); },
-  saveBg(){ localStorage_set('ksv-bg',this.bg||''); this.applyBg(this.bg); toast('ບັນທຶກສີພື້ນຫຼັງແລ້ວ','ok'); },
+  saveBg(){ localStorage_set('ksv-bg',this.bg||''); this.applyBg(this.bg); this.syncShopSettings(); toast('ບັນທຶກສີພື້ນຫຼັງແລ້ວ','ok'); },
   resetBg(){ this.bg=''; localStorage_set('ksv-bg',''); this.applyBg(''); if(this.state.route==='settings')this.route(); toast('ກັບໄປໃຊ້ສີພື້ນຫຼັງເລີ່ມຕົ້ນ','ok'); },
   toggleSide(){
     if(window.innerWidth<=720){ $('#app').classList.toggle('mobile-open'); }
@@ -1623,7 +1653,7 @@ const App = {
   lineTotal(it){ return Math.max(0, it.price*it.qty - (+it.disc||0)); },
   cartSub(){ return (this.state.cart||[]).reduce((a,b)=>a+this.lineTotal(b),0); },
   cartBeforeVat(){ const sub=this.cartSub(); const raw=+(this.state.discountRaw||0); const d=this.state.discType==='%'?Math.round(sub*raw/100):raw; this.state.discount=d; return Math.max(0,sub-d); },
-  cartVat(){ const r=+(this.state.vatRate??10); return this.state.vatOn?Math.round(this.cartBeforeVat()*r/100):0; },
+  cartVat(){ const r=+(this.state.vatRate==null?10:this.state.vatRate); return this.state.vatOn?Math.round(this.cartBeforeVat()*r/100):0; },
   cartTotal(){ return this.cartBeforeVat()+this.cartVat(); },
   cartRender(){
     const cart=this.state.cart;
@@ -1649,7 +1679,7 @@ const App = {
     const discMoney=this.state.discType==='%'?Math.round(sub*raw/100):raw;
     const total=Math.max(0,sub-discMoney);
     this.state.discount=discMoney;
-    const vatRate=+(this.state.vatRate??10); const vatOn=!!this.state.vatOn;
+    const vatRate=+(this.state.vatRate==null?10:this.state.vatRate); const vatOn=!!this.state.vatOn;
     const vatAmt=vatOn?Math.round(total*vatRate/100):0; const grand=total+vatAmt;
     const foot=$('#cartFoot'); if(!foot)return;
     foot.innerHTML=`
@@ -1672,7 +1702,7 @@ const App = {
     const sub=this.cartSub();
     const raw=+(v||0); const disc=this.state.discType==='%'?Math.round(sub*raw/100):raw;
     const total=Math.max(0,sub-disc); this.state.discount=disc;
-    const vatRate=+(this.state.vatRate??10); const vatOn=!!this.state.vatOn;
+    const vatRate=+(this.state.vatRate==null?10:this.state.vatRate); const vatOn=!!this.state.vatOn;
     const vatAmt=vatOn?Math.round(total*vatRate/100):0; const grand=total+vatAmt;
     const d=$('#ctDisc'); if(d)d.textContent=fmt(disc);
     const vd=$('#ctVat'); if(vd)vd.textContent=vatOn?fmt(vatAmt):'-';
@@ -3009,7 +3039,7 @@ const App = {
   saveSettings(){ CONFIG.STORE_NAME=$('#setStore').value; CONFIG.CURRENCY=$('#setCur').value; localStorage_set('ksv-store',CONFIG.STORE_NAME); localStorage_set('ksv-cur',CONFIG.CURRENCY); localStorage_set('ksv-logo',this.logo||''); this.applyLogo(this.logo);
     this.shop={phone:(($('#setPhone')||{}).value||''), addr:(($('#setAddr')||{}).value||''), acct:(($('#setAcct')||{}).value||''), email:(($('#setEmail')||{}).value||'')};
     localStorage_set('ksv-phone',this.shop.phone); localStorage_set('ksv-addr',this.shop.addr); localStorage_set('ksv-acct',this.shop.acct); localStorage_set('ksv-email',this.shop.email);
-    $('#storeBadge').textContent=CONFIG.STORE_NAME; toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
+    $('#storeBadge').textContent=CONFIG.STORE_NAME; this.syncShopSettings(); toast('ບັນທຶກຖາວອນແລ້ວ','ok'); },
   connectSheets(){ CONFIG.APPS_SCRIPT_URL=$('#setUrl').value.trim(); CONFIG.TOKEN=$('#setToken').value.trim(); localStorage_set('ksv-url',CONFIG.APPS_SCRIPT_URL); localStorage_set('ksv-token',CONFIG.TOKEN); toast(CONFIG.APPS_SCRIPT_URL?'ບັນທຶກ & ເຊື່ອມຕໍ່ຖາວອນແລ້ວ':'ກັບໄປໂໝດ Demo','ok'); App.route(); },
   async testSheets(){
     const url=$('#setUrl').value.trim(); if(!url){toast('ກະລຸນາໃສ່ URL ກ່ອນ','err');return;}
@@ -3020,7 +3050,7 @@ const App = {
 
   exportCSV(table){
     const rows=App.state.data[table]||[]; if(!rows.length){toast('ບໍ່ມີຂໍ້ມູນ','err');return;}
-    const keys=Object.keys(rows[0]); const csv=[keys.join(',')].concat(rows.map(r=>keys.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(','))).join('\n');
+    const keys=Object.keys(rows[0]); const csv=[keys.join(',')].concat(rows.map(r=>keys.map(k=>'"'+String(r[k]==null?'':r[k]).replace(/"/g,'""')+'"').join(','))).join('\n');
     const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv); a.download=table+'.csv'; a.click();
   },
 };
