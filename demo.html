@@ -1815,24 +1815,22 @@ const App = {
       note:this.state.payNote||'', lines:JSON.stringify(lines),
       status:credit&&paid<this.state.payTotal?'ຄ້າງຊຳລະ':'ສຳເລັດ'
     };
-    let saved=bill;
-    try{ saved=await Store.create('sales',bill); this.state.data.sales=await Store.list('sales'); }
-    catch(e){ toast('ບັນທຶກບໍ່ສຳເລັດ: '+e.message,'err'); }
-    // ຕັດສະຕັອກ (ນັບເປັນຍ່ອຍ: qty × ຈຳນວນຍ່ອຍຕໍ່ຫົວໜ່ວຍ)
-    for(const pid of ids){ await this.deductStock(pid, this.cartBaseQty(pid)); }
-    this.state.data.products=await Store.list('products'); this.state.posProducts=this.state.data.products; this.bcAll=this.state.data.products;
-    this.state.lastBill=Object.assign({},bill,saved);
+    // ບັນທຶກແບບໄວ: ສະແດງຜົນທັນທີ ແລ້ວສົ່ງຂຶ້ນ Sheet ໃນພື້ນຫຼັງ (ບໍ່ໃຫ້ລໍ)
+    this.state.data.sales=this.state.data.sales||[]; this.state.data.sales.unshift(bill);
+    Store.create('sales',bill).catch(function(e){ toast('⚠️ ບັນທຶກບິນຂຶ້ນ Sheet ບໍ່ສຳເລັດ — ກວດການເຊື່ອມ','err'); });
+    for(const pid of ids){ this.deductStock(pid, this.cartBaseQty(pid)); }
+    this.state.lastBill=Object.assign({},bill);
     if(this.state.shift){ this.state.shift.count++; this.state.shift.total+=(+bill.total||0); if(bill.paytype==='ເງິນສົດ') this.state.shift.cash+=(+bill.total||0); const sb=$('#shiftBtn'); if(sb) sb.innerHTML=I.logout+' ປິດກະ ('+this.state.shift.count+')'; }
     this.state.cart=[]; this.state.discount=0; this.state.discountRaw=''; this.cartRender(); this.posRender(); this.posTxRender();
     this.showChange(this.state.lastBill);
   },
   // ຕັດສະຕັອກ (ນັບເປັນຍ່ອຍ). ບໍ່ໃຫ້ຕິດລົບ.
-  async deductStock(prodId, baseQty){
+  deductStock(prodId, baseQty){
     const prods=this.state.data.products||[];
     const p=prods.find(x=>x.id===prodId); if(!p) return;
     if(p.trackstock==='0'||p.trackstock===0) return;
     p.stock=Math.max(0,(+p.stock||0)-baseQty);
-    await Store.update('products',{id:p.id,stock:p.stock});
+    Store.update('products',{id:p.id,stock:p.stock}).catch(function(){});
   },
   showChange(bill){
     const change=Math.max(0,(+bill.paid)-(+bill.total));
