@@ -982,7 +982,7 @@ const App = {
     async pos(c){
       const [products,customers,sales] = await Promise.all([Store.list('products'),Store.list('customers'),Store.list('sales')]);
       App.state.posProducts = products; App.state.data.customers=customers; App.state.data.sales=sales;
-      App.state.posCust = App.state.posCust||''; App.state.payType=App.state.payType||'ເງິນສົດ';
+      App.state.posCust = App.state.posCust||''; App.state.payType=App.state.payType||'ເງິນສົດ'; App.state.billCurrency=App.state.billCurrency||CONFIG.CURRENCY;
       App.state.priceType=App.state.priceType||'ລາຄາຂາຍ'; App.state.discType=App.state.discType||'ເງິນ';
       App.state.saleDate=App.state.saleDate||new Date().toISOString().slice(0,10);
       App.state.vatRate=(App.state.vatRate==null)?10:App.state.vatRate; App.state.vatOn=App.state.vatOn||false;
@@ -1026,7 +1026,11 @@ const App = {
                 <option value="1">ລາຄາ1</option><option value="2">ລາຄາ2</option><option value="3">ລາຄາ3</option><option value="4">ລາຄາ4</option><option value="5">ລາຄາ5</option>
               </select>
               <select class="inp lo" id="posPay" onchange="App.state.payType=this.value" style="height:32px;padding:4px 8px;font-size:12px">
-                <option>ເງິນສົດ</option><option>ໂອນ</option><option>ບັດ</option><option>ເຄຣດິດ</option>
+                <option>ເງິນສົດ</option><option>ໂອນ</option><option>ບັດ</option><option>ເຄຣດິດ</option><option>ຄ້າງຈ່າຍ</option>
+              </select>
+              <select class="inp lo" id="posCurrency" onchange="App.setBillCurrency(this.value)" style="height:32px;padding:4px 8px;font-size:12px" title="ສະກຸນເງິນຂອງບິນ">
+                <option value="ກີບ" ${(App.state.billCurrency||CONFIG.CURRENCY)==='ກີບ'?'selected':''}>ກີບ</option>
+                <option value="ບາດ" ${(App.state.billCurrency||CONFIG.CURRENCY)==='ບາດ'?'selected':''}>ບາດ</option>
               </select>
             </div>
             <div class="cart-items" id="cartItems"></div>
@@ -1585,7 +1589,7 @@ const App = {
       <td class="num muted">${i+1}</td>
       <td><div style="display:flex;align-items:center;gap:6px"><button class="btn btn-ico btn-ghost" onclick="App.viewBill('${s.id}')" title="ເບິ່ງບິນ" style="color:#2f7df6">${I.eye}</button><button class="btn btn-sm lo" style="background:#2f7df6;color:#fff;border:none" onclick="App.reprintBill('${s.id}')">${I.receipt} ບິນ</button><span class="num" style="font-weight:700">${esc(s.runno)}</span></div></td>
       <td class="lo">${esc(s.customer)||'ທົ່ວໄປ'}</td><td class="num">${fmt(s.items)}</td>
-      <td class="num muted">${fmt(s.discount)}</td><td class="num" style="font-weight:700">${fmt(s.total)}</td>
+      <td class="num muted">${fmt(s.discount)}</td><td class="num" style="font-weight:700">${fmt(s.total)} <span class="muted" style="font-size:11px">${esc(s.currency||CONFIG.CURRENCY)}</span></td>
       <td class="num muted">${fmt(s.paid)}</td><td class="num" style="color:var(--brand-2)">${fmt((+s.paid)-(+s.total)>0?(+s.paid)-(+s.total):0)}</td>
       <td><span class="pill pill-blue">${esc(s.paytype)}</span></td><td class="lo">${esc(s.cashier)}</td>
       <td class="num muted">${esc(s.date)}</td></tr>`).join('');
@@ -1623,6 +1627,7 @@ const App = {
     return fmt(s)+' '+esc(p.unit||'ໜ່ວຍ');
   },
   cartBaseQty(id){ return (this.state.cart||[]).filter(x=>x.id===id).reduce((a,b)=>a+b.qty*(+b.basePer||1),0); },
+  setBillCurrency(v){ this.state.billCurrency=v; this.cartRender(); },
   setPriceLevel(lv){ this.state.priceLevel=+lv; (this.state.cart||[]).forEach(it=>{ if(it.basePer>1)return; const p=this._prod(it.id); if(p)it.price=this.priceOf(p); }); this.cartRender(); },
   addToCart(id){ this.addLine(id,'sub'); },
   addUnit(id,kind){ this.addLine(id,kind); },
@@ -1693,7 +1698,7 @@ const App = {
         </span>
       </div>
       <div class="sumrow" style="align-items:center"><span style="display:flex;align-items:center;gap:6px"><label class="chk" style="margin:0"><input type="checkbox" ${vatOn?'checked':''} onchange="App.toggleVat(this.checked)"> ຄິດ VAT</label><input class="inp" value="${vatRate}" style="width:52px;text-align:right;padding:5px 7px" ${vatOn?'':'disabled'} onchange="App.setVatRate(this.value)"><span class="muted">%</span></span><span class="v" id="ctVat">${vatOn?fmt(vatAmt):'-'}</span></div>
-      <div class="sumrow sum-total"><span>ລວມທັງໝົດ</span><span class="v" id="ctTotal">${fmt(grand)} ${CONFIG.CURRENCY}</span></div>
+      <div class="sumrow sum-total"><span>ລວມທັງໝົດ</span><span class="v" id="ctTotal">${fmt(grand)} ${this.state.billCurrency||CONFIG.CURRENCY}</span></div>
       <div class="sumrow" style="align-items:center;margin-top:8px"><span>ເລືອກວັນທີຂາຍ</span><input type="date" class="inp" value="${this.state.saleDate}" style="padding:6px 8px;width:auto" onchange="App.state.saleDate=this.value"></div>
       <button class="pay-btn" ${cart.length?'':'disabled'} onclick="App.checkout()">ຮັບເງິນ (SpaceBar)</button>`;
   },
@@ -1706,7 +1711,7 @@ const App = {
     const vatAmt=vatOn?Math.round(total*vatRate/100):0; const grand=total+vatAmt;
     const d=$('#ctDisc'); if(d)d.textContent=fmt(disc);
     const vd=$('#ctVat'); if(vd)vd.textContent=vatOn?fmt(vatAmt):'-';
-    const t=$('#ctTotal'); if(t)t.textContent=fmt(grand)+' '+CONFIG.CURRENCY;
+    const t=$('#ctTotal'); if(t)t.textContent=fmt(grand)+' '+(this.state.billCurrency||CONFIG.CURRENCY);
   },
   setDiscType(t){ this.state.discType=t; this.cartRender(); },
   changeUnit(key,kind){
@@ -1737,7 +1742,7 @@ const App = {
     modal(`
       <div class="modal-body" style="padding:18px">
         <select class="inp lo" id="payType2" onchange="App.state.payType=this.value" style="width:100%;height:46px;font-size:16px;font-weight:700;background:linear-gradient(135deg,var(--gold),#eec069);color:#fff;border:none;margin-bottom:10px">
-          ${['ເງິນສົດ','ໂອນ','ບັດ','ເຄຣດິດ'].map(t=>`<option ${this.state.payType===t?'selected':''}>${t}</option>`).join('')}
+          ${['ເງິນສົດ','ໂອນ','ບັດ','ເຄຣດິດ','ຄ້າງຈ່າຍ'].map(t=>`<option style="color:#222;background:#fff" ${this.state.payType===t?'selected':''}>${t}</option>`).join('')}
         </select>
         <div class="center lo" style="font-size:13px;padding:8px;background:var(--brand-soft);color:var(--brand-2);border-radius:11px;margin-bottom:10px;font-weight:600;cursor:text" onclick="document.getElementById('payAmt').focus()">ຮັບເງິນຈາກລູກຄ້າ (ພິມໄດ້ເອງ)</div>
         <button class="pay-exact lo" onclick="App.payExact()">ພໍດີ ${fmt(total)}</button>
@@ -1792,7 +1797,7 @@ const App = {
   },
   async confirmPay(multi){
     const paid=+(this.state.payInput||0);
-    const credit=this.state.payType==='ເຄຣດິດ';
+    const credit=(this.state.payType==='ເຄຣດິດ'||this.state.payType==='ຄ້າງຈ່າຍ');
     if(!credit && paid<this.state.payTotal){ toast('ຈຳນວນເງິນບໍ່ພຽງພໍ','err'); return; }
     const cart=this.state.cart;
     // ກວດສະຕັອກອີກຄັ້ງ (ນັບເປັນຍ່ອຍ) — ບລັອກຖ້າບໍ່ພໍຂາຍ
@@ -1812,7 +1817,7 @@ const App = {
       items:cart.reduce((a,b)=>a+b.qty,0), subtotal:this.cartSub(), discount:this.state.discount||0,
       beforeVat:this.cartBeforeVat(), vat:this.cartVat(), vatRate:this.state.vatOn?(+(this.state.vatRate)||0):0,
       total:this.state.payTotal, paid:paid, paytype:multi?'ຫຼາຍຊ່ອງທາງ':(this.state.payType||'ເງິນສົດ'),
-      note:this.state.payNote||'', lines:JSON.stringify(lines),
+      note:this.state.payNote||'', lines:JSON.stringify(lines), currency:this.state.billCurrency||CONFIG.CURRENCY,
       status:credit&&paid<this.state.payTotal?'ຄ້າງຊຳລະ':'ສຳເລັດ'
     };
     // ບັນທຶກແບບໄວ: ສະແດງຜົນທັນທີ ແລ້ວສົ່ງຂຶ້ນ Sheet ໃນພື້ນຫຼັງ (ບໍ່ໃຫ້ລໍ)
@@ -1821,7 +1826,7 @@ const App = {
     for(const pid of ids){ this.deductStock(pid, this.cartBaseQty(pid)); }
     this.state.lastBill=Object.assign({},bill);
     if(this.state.shift){ this.state.shift.count++; this.state.shift.total+=(+bill.total||0); if(bill.paytype==='ເງິນສົດ') this.state.shift.cash+=(+bill.total||0); const sb=$('#shiftBtn'); if(sb) sb.innerHTML=I.logout+' ປິດກະ ('+this.state.shift.count+')'; }
-    this.state.cart=[]; this.state.discount=0; this.state.discountRaw=''; this.cartRender(); this.posRender(); this.posTxRender();
+    this.state.cart=[]; this.state.discount=0; this.state.discountRaw=''; this.state.billCurrency=CONFIG.CURRENCY; this.cartRender(); this.posRender(); this.posTxRender();
     this.showChange(this.state.lastBill);
   },
   // ຕັດສະຕັອກ (ນັບເປັນຍ່ອຍ). ບໍ່ໃຫ້ຕິດລົບ.
@@ -1851,6 +1856,7 @@ const App = {
   },
   _saleReceiptHtml(size){
     const b=this.state.lastBill; if(!b) return '';
+    const cur=b.currency||CONFIG.CURRENCY;
     let lines=[]; try{ lines=typeof b.lines==='string'?JSON.parse(b.lines||'[]'):(b.lines||[]); }catch(e){ lines=[]; }
     const total=+b.total||0; const vat=+b.vat||0; const beforeVAT=(b.beforeVat!=null&&b.beforeVat!=='')?+b.beforeVat:(total-vat); const vrate=+b.vatRate||0;
     const _qrs=(App.qr||[]).filter(q=>q&&q.img); const qrHtml=_qrs.length?`<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:8px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="display:flex;justify-content:center;gap:2cm;flex-wrap:wrap">${_qrs.map(q=>`<div class="center" style="font-size:11px"><img src="${esc(q.img)}" style="width:2.5cm;height:2.5cm;object-fit:contain"><div style="margin-top:2px">${esc(q.name||'')}</div></div>`).join('')}</div></div>`:'';
@@ -1864,7 +1870,7 @@ const App = {
         <table>${rows}</table><hr>
         <table><tr><td>ລວມ</td><td class="right">${fmt(b.subtotal)}</td></tr>
         <tr><td>ສ່ວນຫຼຸດ</td><td class="right">-${fmt(b.discount)}</td></tr>
-        <tr class="bold"><td>ລວມທັງໝົດ</td><td class="right">${fmt(total)}</td></tr>
+        <tr class="bold"><td>ລວມທັງໝົດ</td><td class="right">${fmt(total)} ${cur}</td></tr>
         <tr><td>ຮັບເງິນ</td><td class="right">${fmt(b.paid)}</td></tr>
         <tr><td>ເງິນທອນ</td><td class="right">${fmt(Math.max(0,(+b.paid)-total))}</td></tr></table>
         <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div>${qrHtml}</div>`;
@@ -1888,7 +1894,7 @@ const App = {
             <tr><td style="padding:4px 8px">ສ່ວນຫຼຸດທ້າຍບິນ</td><td class="right" style="padding:4px 8px">-${fmt(b.discount)}</td></tr>
             ${vat>0?`<tr><td style="padding:4px 8px">ຍອດກ່ອນພາສີ</td><td class="right" style="padding:4px 8px">${fmt(beforeVAT)}</td></tr>
             <tr><td style="padding:4px 8px">ພາສີ VAT ${vrate}%</td><td class="right" style="padding:4px 8px">${fmt(vat)}</td></tr>`:''}
-            <tr class="bold"><td style="padding:4px 8px">ລວມທັງໝົດ</td><td class="right" style="padding:4px 8px">${fmt(total)}</td></tr></table></td></tr></table>
+            <tr class="bold"><td style="padding:4px 8px">ລວມທັງໝົດ</td><td class="right" style="padding:4px 8px">${fmt(total)} ${cur}</td></tr></table></td></tr></table>
         <table style="margin-top:26px;text-align:center"><tr>
           <td>......................<br>ຜູ້ສັ່ງສິນຄ້າ</td><td>......................<br>ຜູ້ຮັບສິນຄ້າ</td><td>......................<br>ຜູ້ອະນຸມັດ</td></tr></table>
         <div style="font-size:11px;margin-top:10px">ສິນຄ້າທີ່ຊື້ແລ້ວ ສາມາດປ່ຽນ-ຄືນພາຍໃນ 3 ວັນ ພ້ອມໃບບິນ. ຮັບປະກັນຕາມເງື່ອນໄຂຮ້ານ.</div>
