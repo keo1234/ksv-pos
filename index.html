@@ -2558,19 +2558,35 @@ const App = {
     await Store.create('stockmoves',move); this.state.data.stockmoves=await Store.list('stockmoves');
     toast('ບັນທຶກສຳເລັດ','ok'); this.prodRender();
   },
+  confirmBox(opts){
+    opts=opts||{};
+    var danger=opts.danger!==false;
+    var icon=opts.icon||(danger?I.warn:I.check);
+    modal(`<div class="modal-body" style="text-align:center;padding:30px 24px 24px">
+      <div style="width:60px;height:60px;border-radius:50%;background:${danger?'#fef2f2':'var(--brand-soft)'};display:grid;place-items:center;margin:0 auto 16px;color:${danger?'var(--danger)':'var(--brand-2)'}">${icon}</div>
+      <h3 class="lo" style="font-size:18px;font-weight:700;margin-bottom:6px">${esc(opts.message||'ຢືນຢັນການກະທຳ?')}</h3>
+      ${opts.sub?`<p class="lo muted" style="font-size:13px;line-height:1.5">${esc(opts.sub)}</p>`:''}</div>
+      <div class="modal-foot" style="justify-content:center;gap:12px">
+        <button class="btn lo" style="min-width:110px;justify-content:center" onclick="closeModal()">${esc(opts.cancelText||'ຍົກເລີກ')}</button>
+        <button class="btn ${danger?'btn-danger':'btn-primary'} lo" id="cfxOk" style="min-width:110px;justify-content:center">${esc(opts.okText||'ຢືນຢັນ')}</button>
+      </div>`,false,true);
+    var b=document.getElementById('cfxOk'); if(b) b.onclick=function(){ closeModal(); if(opts.onOk) opts.onOk(); };
+  },
   delMove(id){
+    var self=this;
     var m=(this.state.data.stockmoves||[]).find(function(x){return x.id===id;}); if(!m)return;
-    if(!confirm('ລຶບລາຍການເຄື່ອນໄຫວນີ້? ລະບົບຈະຄືນຄ່າສະຕັອກໃຫ້ອັດຕະໂນມັດ.')) return;
-    var p=(this.state.data.products||[]).find(function(x){return String(x.name)===String(m.product);});
-    var reversed=false;
-    if(p){ var q=+m.qty||0;
-      if(m.type==='ເຂົ້າ'){ p.stock=(+p.stock)-q; reversed=true; }
-      else if(m.type==='ອອກ'){ p.stock=(+p.stock)+q; reversed=true; }
-      if(reversed) Store.update('products',{id:p.id,stock:p.stock});
-    }
-    Store.remove('stockmoves',id);
-    this.state.data.stockmoves=(this.state.data.stockmoves||[]).filter(function(x){return x.id!==id;});
-    toast('ລຶບລາຍການແລ້ວ'+(reversed?' + ຄືນຄ່າສະຕັອກ':''),'ok'); this.prodRender();
+    this.confirmBox({ message:'ລຶບລາຍການເຄື່ອນໄຫວນີ້?', sub:'ລະບົບຈະຄືນຄ່າສະຕັອກໃຫ້ອັດຕະໂນມັດ', okText:'ລຶບ', danger:true, icon:I.trash, onOk:function(){
+      var p=(self.state.data.products||[]).find(function(x){return String(x.name)===String(m.product);});
+      var reversed=false;
+      if(p){ var q=+m.qty||0;
+        if(m.type==='ເຂົ້າ'){ p.stock=(+p.stock)-q; reversed=true; }
+        else if(m.type==='ອອກ'){ p.stock=(+p.stock)+q; reversed=true; }
+        if(reversed) Store.update('products',{id:p.id,stock:p.stock});
+      }
+      Store.remove('stockmoves',id);
+      self.state.data.stockmoves=(self.state.data.stockmoves||[]).filter(function(x){return x.id!==id;});
+      toast('ລຶບລາຍການແລ້ວ'+(reversed?' + ຄືນຄ່າສະຕັອກ':''),'ok'); self.prodRender();
+    }});
   },
   editMove(id){
     var m=(this.state.data.stockmoves||[]).find(function(x){return x.id===id;}); if(!m)return;
