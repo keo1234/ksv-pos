@@ -719,8 +719,9 @@ const $ = s=>document.querySelector(s);
 const fmt = n => (Number(n)||0).toLocaleString('en-US');
 const fmtDate = v => { if(!v) return ''; const s=String(v).trim(); if(/T.*Z$/.test(s)){ const d=new Date(s); if(!isNaN(d)){ d.setUTCHours(d.getUTCHours()+7); return d.toISOString().slice(0,10); } } return s.slice(0,10); };
 /* ແປງຕົວເລກເປັນຄຳອ່ານພາສາລາວ (ກີບ) */
-function kipWords(num){
-  num=Math.round(Number(num)||0); if(num===0) return 'ສູນກີບຖ້ວນ';
+function kipWords(num, unit){
+  unit=unit||'ກີບ';
+  num=Math.round(Number(num)||0); if(num===0) return 'ສູນ'+unit+'ຖ້ວນ';
   const d=['ສູນ','ໜຶ່ງ','ສອງ','ສາມ','ສີ່','ຫ້າ','ຫົກ','ເຈັດ','ແປດ','ເກົ້າ'];
   const pos=['','ສິບ','ຮ້ອຍ','ພັນ','ໝື່ນ','ແສນ'];
   function under(n){ // n < 1,000,000
@@ -733,9 +734,9 @@ function kipWords(num){
     return s;
   }
   let result='';
-  if(num>=1000000){ result+=kipWords(Math.floor(num/1000000)).replace('ກີບຖ້ວນ','')+'ລ້ານ'; num=num%1000000; }
+  if(num>=1000000){ result+=kipWords(Math.floor(num/1000000), unit).replace(unit+'ຖ້ວນ','')+'ລ້ານ'; num=num%1000000; }
   result+=under(num);
-  return result+'ກີບຖ້ວນ';
+  return result+unit+'ຖ້ວນ';
 }
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(msg,type=''){
@@ -1375,7 +1376,7 @@ const App = {
           <td class="lo"><div style="font-weight:600">${esc(r.name)}</div><div class="muted" style="font-size:12px">${esc(r.phone)}</div></td>
           <td class="lo">${esc(r.product)} <span class="muted">${esc(r.brand)} ${esc(r.model)}</span></td>
           <td class="lo">${esc(r.symptom)||'-'}</td>
-          <td class="num">${fmt(r.cost)} <span class="muted">${CONFIG.CURRENCY}</span></td>
+          <td class="num">${fmt(r.cost)} <span class="muted">${esc(r.currency||CONFIG.CURRENCY)}</span></td>
           <td class="num">${fmtDate(r.duedate)||'-'}</td>
           <td><select class="inp" style="min-width:118px;height:34px;padding:4px 8px" onchange="App.repairStatus('${r.id}',this.value)">${STA.map(st=>`<option ${r.status===st?'selected':''}>${st}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:6px;justify-content:flex-end">
@@ -1401,7 +1402,7 @@ const App = {
           <td class="lo"><div style="font-weight:600">${esc(r.name)}</div><div class="muted" style="font-size:12px">${esc(r.phone)}</div></td>
           <td class="lo">${esc(r.content)||'-'}</td>
           <td class="lo">${esc(r.size)||'-'}</td>
-          <td class="num">${fmt(r.price)} <span class="muted">${CONFIG.CURRENCY}</span></td>
+          <td class="num">${fmt(r.price)} <span class="muted">${esc(r.currency||CONFIG.CURRENCY)}</span></td>
           <td class="num">${fmtDate(r.pickupdate)||'-'}</td>
           <td><select class="inp" style="min-width:118px;height:34px;padding:4px 8px" onchange="App.printjobStatus('${r.id}',this.value)">${STA.map(st=>`<option ${r.status===st?'selected':''}>${st}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:6px;justify-content:flex-end">
@@ -1899,7 +1900,7 @@ const App = {
         <tr class="bold"><td>ລວມທັງໝົດ</td><td class="right">${fmt(total)} ${cur}</td></tr>
         <tr><td>ຮັບເງິນ</td><td class="right">${fmt(b.paid)}</td></tr>
         <tr><td>ເງິນທອນ</td><td class="right">${fmt(Math.max(0,(+b.paid)-total))}</td></tr></table>
-        <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div>${statusBox}${qrHtml}</div>`;
+        <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total, cur))} **</div>${statusBox}${qrHtml}</div>`;
     } else {
       const rows=lines.map((l,i)=>`<tr><td class="center">${i+1}</td><td>${esc(l.name)}</td><td class="center">${l.qty}</td><td class="center">${esc(l.unit)}</td><td class="right">${fmt(l.price)}</td><td class="right">${fmt(l.disc)}</td><td class="right">${fmt(l.total)}</td></tr>`).join('');
       var html=`<div class="rc ${size}">
@@ -1914,7 +1915,7 @@ const App = {
           <td style="border:1px solid #000;padding:8px">ເລກທີ: ${esc(b.billno||b.runno)}<br>ວັນທີ: ${esc(b.date)}<br>ພະນັກງານ: ${esc(b.cashier)}</td></tr></table>
         <table class="items"><thead><tr class="bold"><th>ລຳດັບ</th><th>ລາຍການສິນຄ້າ</th><th>ຈຳນວນ</th><th>ຫົວໜ່ວຍ</th><th>ລາຄາຂາຍ</th><th>ສ່ວນຫຼຸດ</th><th>ຈຳນວນເງິນ</th></tr></thead>
           <tbody>${rows}</tbody></table>
-        <table style="margin-top:8px"><tr><td style="width:55%;border:1px solid #000;padding:0;vertical-align:middle"><div style="border-bottom:1px solid #000;padding:12px 8px;text-align:center;color:${_payC};font-weight:800;font-size:15px">ສະຖານະ: ${_payLabel}${_isOwe?' — ຄ້າງ '+fmt(((+b.total)||0)-((+b.paid)||0))+' '+cur:''}<div style="font-size:11px;color:#555;font-weight:600;margin-top:4px">${esc(String(b.date||'').slice(0,16))}</div></div><div style="padding:16px 8px;text-align:center;font-size:13px;font-weight:600">( ${esc(kipWords(total))} )</div></td>
+        <table style="margin-top:8px"><tr><td style="width:55%;border:1px solid #000;padding:0;vertical-align:middle"><div style="border-bottom:1px solid #000;padding:12px 8px;text-align:center;color:${_payC};font-weight:800;font-size:15px">ສະຖານະ: ${_payLabel}${_isOwe?' — ຄ້າງ '+fmt(((+b.total)||0)-((+b.paid)||0))+' '+cur:''}<div style="font-size:11px;color:#555;font-weight:600;margin-top:4px">${esc(String(b.date||'').slice(0,16))}</div></div><div style="padding:16px 8px;text-align:center;font-size:13px;font-weight:600">( ${esc(kipWords(total, cur))} )</div></td>
           <td style="border:1px solid #000;padding:0">
             <table><tr><td style="padding:4px 8px">ລວມ</td><td class="right" style="padding:4px 8px">${fmt(b.subtotal)}</td></tr>
             <tr><td style="padding:4px 8px">ສ່ວນຫຼຸດທ້າຍບິນ</td><td class="right" style="padding:4px 8px">-${fmt(b.discount)}</td></tr>
