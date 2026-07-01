@@ -264,9 +264,9 @@ html[data-theme=dark] .pill-red{background:#2e1418;color:#f08a96}
 .prod-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px;
   cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
 .prod-card:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow-lg)}
-.prod-card .p-thumb{height:70px;border-radius:10px;display:grid;place-items:center;font-size:26px;
-  background:linear-gradient(135deg,var(--surface-2),var(--line));margin-bottom:4px}
-.prod-card .p-name{font-family:var(--font-lao);font-weight:600;font-size:13px;line-height:1.3;min-height:34px}
+.prod-card .p-thumb{height:104px;border-radius:10px;display:grid;place-items:center;font-size:26px;overflow:hidden;
+  background:#fff;border:1px solid var(--line);margin-bottom:6px}
+.prod-card .p-name{font-family:var(--font-lao);font-weight:600;font-size:13px;line-height:1.3;min-height:34px;word-break:break-word}
 .prod-card .p-price{color:var(--brand-2);font-weight:800;font-size:15px}
 .prod-card .p-stock{font-size:11px;color:var(--ink-soft);font-family:var(--font-lao)}
 
@@ -1618,12 +1618,12 @@ const App = {
     $('#posGrid').innerHTML = list.length? list.map((p,i)=>`
       <div class="prod-card" onclick="App.addToCart('${p.id}')">
         <div style="font-size:11px;color:var(--ink-soft);display:flex;justify-content:space-between"><span class="num">${esc(p.barcode)||''}</span><span class="lo" style="color:var(--danger);font-weight:600">ເຫຼືອ ${App.stockText(p)}</span></div>
-        <div class="p-thumb">${p.image?'<img src="'+esc(p.image)+'" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\''+emo[i%emo.length]+'\'" style="width:100%;height:100%;object-fit:cover;border-radius:10px">':emo[i%emo.length]}</div>
+        <div class="p-thumb">${p.image?'<img src="'+esc(p.image)+'" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\''+emo[i%emo.length]+'\'" style="width:100%;height:100%;object-fit:contain;border-radius:10px">':emo[i%emo.length]}</div>
         <div class="p-name lo">${esc(p.name)}</div>
         ${App.hasBig(p)?`
           <div class="lo" style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;border-radius:7px;cursor:pointer" onmouseover="this.style.background='var(--brand-soft)'" onmouseout="this.style.background='none'" onclick="event.stopPropagation();App.addUnit('${p.id}','big')"><span style="font-size:12px;color:var(--ink-soft)">${esc(p.unitBig)}</span><span style="color:var(--danger);font-weight:700">${fmt(+p.priceBig||0)}</span></div>
           <div class="lo" style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;border-radius:7px;cursor:pointer" onmouseover="this.style.background='var(--brand-soft)'" onmouseout="this.style.background='none'" onclick="event.stopPropagation();App.addUnit('${p.id}','sub')"><span style="font-size:12px;color:var(--ink-soft)">${esc(p.unit||'ໜ່ວຍ')}</span><span style="color:var(--brand-2);font-weight:700">${fmt(App.priceOf(p))}</span></div>
-        `:`<div class="p-price" style="color:var(--danger)">${fmt(App.priceOf(p))} <span style="font-size:11px;color:var(--ink-soft)">${CONFIG.CURRENCY}</span></div>`}
+        `:`<div class="p-price" style="color:var(--danger)">${fmt(App.priceOf(p))} <span style="font-size:11px;color:var(--ink-soft)">${esc(p.currency||CONFIG.CURRENCY)}</span></div>`}
       </div>`).join('') : `<div class="empty" style="grid-column:1/-1">${I.search}<div class="lo">ບໍ່ພົບສິນຄ້າ</div></div>`;
   },
   priceOf(p){ const lv=this.state.priceLevel||1; const v=lv>1?+p['price'+lv]:+p.price; return v||+p.price||0; },
@@ -1684,7 +1684,7 @@ const App = {
           <div class="qty" style="flex:none"><button onclick="App.setQty('${it.key||it.id}',-1)">−</button>
             <input value="${it.qty}" onchange="App.setQtyVal('${it.key||it.id}',this.value)"><button onclick="App.setQty('${it.key||it.id}',1)">+</button></div>
           <div class="ci-info" style="flex:1"><div class="ci-name lo">${esc(it.name)} ${(()=>{const p=this._prod(it.id);return this.hasBig(p)?`<select class="inp" style="height:24px;padding:1px 6px;font-size:11px;width:auto;display:inline-block" onchange="App.changeUnit('${it.key||it.id}',this.value)"><option value="sub" ${(+it.basePer>1)?'':'selected'}>${esc(p.unit||'ໜ່ວຍ')}</option><option value="big" ${(+it.basePer>1)?'selected':''}>${esc(p.unitBig)}</option></select>`:`<span class="muted" style="font-weight:400">(${esc(it.unit)})</span>`})()}</div>
-            <div class="ci-price">${fmt(it.price)} ${CONFIG.CURRENCY}</div></div>
+            <div class="ci-price">${fmt(it.price)} ${esc((this._prod(it.id)||{}).currency||CONFIG.CURRENCY)}</div></div>
           <div style="text-align:right"><div class="ci-total">${fmt(this.lineTotal(it))}</div></div>
           <button class="ci-del icon-btn" style="width:24px;height:24px;flex:none" onclick="App.rmCart('${it.key||it.id}')">${I.close}</button>
         </div>
@@ -1914,7 +1914,7 @@ const App = {
           <td style="border:1px solid #000;padding:8px">ເລກທີ: ${esc(b.billno||b.runno)}<br>ວັນທີ: ${esc(b.date)}<br>ພະນັກງານ: ${esc(b.cashier)}</td></tr></table>
         <table class="items"><thead><tr class="bold"><th>ລຳດັບ</th><th>ລາຍການສິນຄ້າ</th><th>ຈຳນວນ</th><th>ຫົວໜ່ວຍ</th><th>ລາຄາຂາຍ</th><th>ສ່ວນຫຼຸດ</th><th>ຈຳນວນເງິນ</th></tr></thead>
           <tbody>${rows}</tbody></table>
-        <table style="margin-top:8px"><tr><td style="width:55%;border:1px solid #000;padding:10px;vertical-align:bottom">( ${esc(kipWords(total))} )</td>
+        <table style="margin-top:8px"><tr><td style="width:55%;border:1px solid #000;padding:0;vertical-align:middle"><div style="border-bottom:1px solid #000;padding:12px 8px;text-align:center;color:${_payC};font-weight:800;font-size:15px">ສະຖານະ: ${_payLabel}${_isOwe?' — ຄ້າງ '+fmt(((+b.total)||0)-((+b.paid)||0))+' '+cur:''}<div style="font-size:11px;color:#555;font-weight:600;margin-top:4px">${esc(String(b.date||'').slice(0,16))}</div></div><div style="padding:16px 8px;text-align:center;font-size:13px;font-weight:600">( ${esc(kipWords(total))} )</div></td>
           <td style="border:1px solid #000;padding:0">
             <table><tr><td style="padding:4px 8px">ລວມ</td><td class="right" style="padding:4px 8px">${fmt(b.subtotal)}</td></tr>
             <tr><td style="padding:4px 8px">ສ່ວນຫຼຸດທ້າຍບິນ</td><td class="right" style="padding:4px 8px">-${fmt(b.discount)}</td></tr>
@@ -1925,7 +1925,7 @@ const App = {
         <table style="margin-top:26px;text-align:center"><tr>
           <td>......................<br>ຜູ້ສັ່ງສິນຄ້າ</td><td>......................<br>ຜູ້ຮັບສິນຄ້າ</td><td>......................<br>ຜູ້ອະນຸມັດ</td></tr></table>
         <div style="font-size:11px;margin-top:10px">ສິນຄ້າທີ່ຊື້ແລ້ວ ສາມາດປ່ຽນ-ຄືນພາຍໃນ 3 ວັນ ພ້ອມໃບບິນ. ຮັບປະກັນຕາມເງື່ອນໄຂຮ້ານ.</div>
-        ${statusBox}${qrHtml}
+        ${qrHtml}
       </div>`;
     }
     return html;
