@@ -300,7 +300,7 @@ html[data-theme=dark] .pill-red{background:#2e1418;color:#f08a96}
 .pay-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
 
 /* ====== MODAL ====== */
-.overlay{position:fixed;inset:0;background:rgba(8,11,18,.55);backdrop-filter:blur(3px);z-index:80;
+.overlay{position:fixed;inset:0;background:rgba(8,11,18,.62);z-index:80;
   display:grid;place-items:center;padding:20px;animation:fade .2s}
 .modal{background:var(--surface);border-radius:20px;width:min(480px,94vw);max-height:90vh;overflow:auto;
   box-shadow:var(--shadow-lg);animation:pop .25s cubic-bezier(.2,.9,.3,1.2)}
@@ -385,6 +385,12 @@ html[data-theme=dark] .banner.warn{background:#231b08;color:#e6bf6a;border-color
   #app{grid-template-columns:0 1fr}#app .sidebar{position:fixed;z-index:70;width:256px;height:100vh;transform:translateX(-100%);transition:.25s}
   #app.mobile-open .sidebar{transform:none}
   .content{padding:16px}
+  .overlay{padding:8px}
+  .modal,.modal.wide{width:96vw;max-height:92vh}
+  .modal-head,.modal-body,.modal-foot{padding-left:14px;padding-right:14px}
+  .modal-foot{flex-wrap:wrap}
+  .modal-foot .btn{flex:1;justify-content:center;min-width:120px}
+  .form-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -738,9 +744,10 @@ function toast(msg,type=''){
   $('#toasts').appendChild(el); setTimeout(()=>{el.style.opacity=0;el.style.transform='translateX(40px)';setTimeout(()=>el.remove(),300)},2600);
 }
 let MODAL=null;
-function modal(html,wide){
+function modal(html,wide,persistent){
   closeModal();
-  const o=document.createElement('div'); o.className='overlay'; o.onclick=e=>{if(e.target===o)closeModal()};
+  const o=document.createElement('div'); o.className='overlay'; o.dataset.persist=persistent?'1':'';
+  o.onclick=e=>{ if(e.target===o && o.dataset.persist!=='1') closeModal(); };
   o.innerHTML='<div class="modal '+(wide?'wide':'')+'">'+html+'</div>';
   document.body.appendChild(o); MODAL=o; return o;
 }
@@ -2367,7 +2374,7 @@ const App = {
                 <input type="hidden" data-k="image" id="pfImage" value="${esc(p.image)}">
               </div>
             </div></div>
-          <div class="fg full"><label>ຊື່ສິນຄ້າ</label><input class="inp" data-k="name" value="${esc(p.name)}"></div>
+          <div class="fg full"><label>ຊື່ສິນຄ້າ <span class="muted" style="font-weight:400;font-size:11px">(ພິມແລ້ວເລືອກສິນຄ້າຄ້າຍກັນເພື່ອດຶງຂໍ້ມູນ)</span></label><input class="inp" data-k="name" list="prodNameList" ${id?'':'onchange="App.prodPrefillFromName(this.value)"'} value="${esc(p.name)}"><datalist id="prodNameList">${(this.state.data.products||[]).map(x=>'<option value="'+esc(x.name)+'"></option>').join('')}</datalist></div>
           <div class="fg"><label>ຫົວໜ່ວຍຍ່ອຍ (ຂາຍແຍກ)</label><select class="inp lo" data-k="unit">${opt(units,p.unit,'ເລືອກ')}</select></div>
           <div class="fg"><label>ໝວດໝູ່</label><select class="inp lo" data-k="category">${opt(cats,p.category,'ເລືອກໝວດໝູ່')}</select></div>
           <div class="fg full"><label>ລາຍລະອຽດ</label><textarea data-k="description">${esc(p.description)}</textarea></div>
@@ -2398,7 +2405,7 @@ const App = {
         </div>
       </div>
       <div class="modal-foot"><button class="btn lo" onclick="closeModal()">ຍົກເລີກ</button>
-      <button class="btn btn-primary lo" onclick="App.saveProduct('${id||''}')">${I.check} ບັນທຶກ</button></div>`,true);
+      <button class="btn btn-primary lo" onclick="App.saveProduct('${id||''}')">${I.check} ບັນທຶກ</button></div>`,true,true);
   },
   pickProdImage(){
     const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
@@ -2427,6 +2434,15 @@ const App = {
     const pv=document.getElementById('pfPreview'); if(pv) pv.innerHTML=val?('<img src="'+esc(val)+'" style="width:100%;height:100%;object-fit:cover">'):I.image;
   },
   clearProdImage(){ App.setProdImage(''); const u=document.getElementById('pfUrl'); if(u)u.value=''; },
+  prodPrefillFromName(name){
+    var p=(this.state.data.products||[]).find(function(x){return String(x.name)===String(name);});
+    if(!p) return;
+    var f=document.getElementById('prodForm'); if(!f) return;
+    ['unit','category','vendor','zone','cost','price','price2','price3','price4','price5','points','description','unitBig','bigRatio','priceBig','costBig','lowstock','weight','trackstock'].forEach(function(k){
+      var el=f.querySelector('[data-k="'+k+'"]'); if(!el) return; el.value=(p[k]!=null?p[k]:'');
+    });
+    try{ toast('ດຶງຂໍ້ມູນຈາກ "'+p.name+'" ມາເປັນແບບ — ແກ້ໄຂ ຫຼື ປ່ຽນຊື່ໄດ້','ok'); }catch(e){}
+  },
   async saveProduct(id){
     const row={};
     document.querySelectorAll('#prodForm [data-k]').forEach(el=>{
