@@ -340,8 +340,9 @@ input.pay-amount:focus{border-color:var(--brand)}
 .rc{color:#000;font-family:"Noto Sans Lao",sans-serif;background:#fff}
 .rc.slip{width:72mm;margin:0 auto;font-size:12px}
 .rc.a4{width:190mm;margin:0 auto;font-size:13px}
+.rc.a5{width:148mm;margin:0 auto;font-size:12.5px}
 .rc table{width:100%;border-collapse:collapse}
-.rc.a4 table.items th,.rc.a4 table.items td{border:1px solid #000;padding:5px 7px}
+.rc.a4 table.items th,.rc.a4 table.items td,.rc.a5 table.items th,.rc.a5 table.items td{border:1px solid #000;padding:5px 7px}
 .rc .center{text-align:center}.rc .right{text-align:right}.rc .bold{font-weight:700}
 .rc .logo{width:64px;height:64px;border-radius:50%;object-fit:contain}
 .keypad button:hover{background:var(--line)}
@@ -1845,6 +1846,7 @@ const App = {
         <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
           <button class="btn lo" style="background:#2f7df6;color:#fff;border:none;padding:14px 22px;font-size:15px" onclick="App.printReceipt('slip')">${I.receipt} ໃບບິນນ້ອຍ (Slip)</button>
           <button class="btn lo" style="background:#2f7df6;color:#fff;border:none;padding:14px 22px;font-size:15px" onclick="App.printReceipt('a4')">${I.receipt} ໃບບິນຂະໜາດໃຫຍ່ (A4)</button>
+          <button class="btn lo" style="background:#0e9f6e;color:#fff;border:none;padding:14px 22px;font-size:15px" onclick="App.printReceipt('a5')">${I.receipt} ຂະໜາດ A5</button>
         </div>
         <p class="lo muted" style="font-size:12px;margin-top:18px">ເລືອກຮູບແບບໃບບິນ ເພື່ອພິມ ຫຼື ບັນທຶກ PDF</p>
       </div>
@@ -1876,7 +1878,7 @@ const App = {
         <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div>${qrHtml}</div>`;
     } else {
       const rows=lines.map((l,i)=>`<tr><td class="center">${i+1}</td><td>${esc(l.name)}</td><td class="center">${l.qty}</td><td class="center">${esc(l.unit)}</td><td class="right">${fmt(l.price)}</td><td class="right">${fmt(l.disc)}</td><td class="right">${fmt(l.total)}</td></tr>`).join('');
-      var html=`<div class="rc a4">
+      var html=`<div class="rc ${size}">
         <table style="margin-bottom:8px"><tr>
           <td style="width:70%"><div style="display:flex;gap:12px;align-items:center">
             ${App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`}
@@ -1910,6 +1912,7 @@ const App = {
     modal(`<div class="modal-head"><h3 class="lo">${I.search} ເບິ່ງບິນ ${esc(b.runno||'')}</h3>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn lo" style="background:#2f7df6;color:#fff;border:none" onclick="App.printReceipt(\'a4\')">${I.download} PDF / A4</button>
+        <button class="btn lo" style="background:#0e9f6e;color:#fff;border:none" onclick="App.printReceipt(\'a5\')">A5</button>
         <button class="btn lo" style="background:var(--brand);color:#fff;border:none" onclick="App.printReceipt(\'slip\')">${I.printer} ປິ້ນ</button>
         <button class="icon-btn" onclick="closeModal()">${I.close}</button>
       </div></div>
@@ -2880,9 +2883,10 @@ const App = {
     const qs=(App.qr||[]).filter(function(q){return q&&q.img;});
     if(!qs.length) return '';
     const slip = size==='slip';
-    const wrap = slip ? 'display:flex;flex-direction:column;align-items:center;gap:12px' : 'display:flex;justify-content:center;gap:2cm;flex-wrap:wrap';
-    const sz = slip ? '3cm' : '2.5cm';
-    return '<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:8px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="'+wrap+'">'+qs.map(function(q){return '<div class="center" style="font-size:11px"><img src="'+esc(q.img)+'" style="width:'+sz+';height:'+sz+';object-fit:contain"><div style="margin-top:2px">'+esc(q.name||'')+'</div></div>';}).join('')+'</div></div>';
+    const wrap = slip ? 'display:flex;justify-content:center;gap:5px;align-items:flex-start' : 'display:flex;justify-content:center;gap:2cm;flex-wrap:wrap';
+    const item = slip ? 'flex:1;max-width:2.6cm;text-align:center;font-size:9px' : 'text-align:center;font-size:11px';
+    const imgSt = slip ? 'width:100%;height:auto;object-fit:contain' : 'width:2.5cm;height:2.5cm;object-fit:contain';
+    return '<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:8px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="'+wrap+'">'+qs.map(function(q){return '<div style="'+item+'"><img src="'+esc(q.img)+'" style="'+imgSt+'"><div style="margin-top:2px">'+esc(q.name||'')+'</div></div>';}).join('')+'</div></div>';
   },
   _printHTML(html){
     const pa=document.getElementById('printArea'); pa.innerHTML=html;
@@ -2896,6 +2900,7 @@ const App = {
       <div class="modal-body" style="display:flex;gap:12px;justify-content:center;padding:24px;flex-wrap:wrap">
         <button class="btn lo" style="flex:1;min-width:160px;justify-content:center;padding:16px;background:var(--brand);color:#fff;border:none" onclick="App.repairPrint('${id}','slip')">${I.printer} ໃບນ້ອຍ (Slip)</button>
         <button class="btn lo" style="flex:1;min-width:160px;justify-content:center;padding:16px;background:#2f7df6;color:#fff;border:none" onclick="App.repairPrint('${id}','a4')">${I.printer} ໃບໃຫຍ່ (A4)</button>
+        <button class="btn lo" style="flex:1;min-width:120px;justify-content:center;padding:16px;background:#0e9f6e;color:#fff;border:none" onclick="App.repairPrint('${id}','a5')">${I.printer} A5</button>
       </div>`);
   },
   _repairReceiptHtml(r,size){
@@ -2903,9 +2908,9 @@ const App = {
     const qrHtml=this._qrBlock(size);
     const shopLines=`${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div style="font-size:12px">ໂທ: ${esc(App.shop.phone)}</div>`:''}${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}`;
     let html;
-    if(size==='a4'){
+    if(size!=='slip'){
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
-      html=`<div class="rc a4">
+      html=`<div class="rc ${size}">
         <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td></tr></table>
         <div class="center bold" style="font-size:22px;margin-bottom:4px">ໃບຮັບສ້ອມແປງ</div>
         <div class="center" style="margin-bottom:10px">ເລກທີ: <b>${esc(r.runno||r.id)}</b></div>
@@ -2960,6 +2965,7 @@ const App = {
     modal(`<div class="modal-head"><h3 class="lo">${I.search} ເບິ່ງບິນສ້ອມແປງ ${esc(r.runno||'')}</h3>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn lo" style="background:#2f7df6;color:#fff;border:none" onclick="App.repairPrint('${r.id}','a4')">${I.download} PDF / A4</button>
+        <button class="btn lo" style="background:#0e9f6e;color:#fff;border:none" onclick="App.repairPrint('${r.id}','a5')">A5</button>
         <button class="btn lo" style="background:var(--brand);color:#fff;border:none" onclick="App.repairPrint('${r.id}','slip')">${I.printer} ປິ້ນ</button>
         <button class="icon-btn" onclick="closeModal()">${I.close}</button>
       </div></div>
@@ -2997,9 +3003,9 @@ const App = {
     const qrHtml=this._qrBlock(size);
     const shopLines=`${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div style="font-size:12px">ໂທ: ${esc(App.shop.phone)}</div>`:''}${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}`;
     let html;
-    if(size==='a4'){
+    if(size!=='slip'){
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
-      html=`<div class="rc a4">
+      html=`<div class="rc ${size}">
         <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td></tr></table>
         <div class="center bold" style="font-size:22px;margin-bottom:4px">ໃບຮັບສິ່ງພິມ</div>
         <div class="center" style="margin-bottom:10px">ເລກທີ: <b>${esc(r.runno||r.id)}</b></div>
@@ -3051,6 +3057,7 @@ const App = {
       <div class="modal-body" style="display:flex;gap:12px;justify-content:center;padding:24px;flex-wrap:wrap">
         <button class="btn lo" style="flex:1;min-width:160px;justify-content:center;padding:16px;background:var(--brand);color:#fff;border:none" onclick="App.printjobPrint('${id}','slip')">${I.printer} ໃບນ້ອຍ (Slip)</button>
         <button class="btn lo" style="flex:1;min-width:160px;justify-content:center;padding:16px;background:#2f7df6;color:#fff;border:none" onclick="App.printjobPrint('${id}','a4')">${I.printer} ໃບໃຫຍ່ (A4)</button>
+        <button class="btn lo" style="flex:1;min-width:120px;justify-content:center;padding:16px;background:#0e9f6e;color:#fff;border:none" onclick="App.printjobPrint('${id}','a5')">${I.printer} A5</button>
       </div>`);
   },
   printjobPrint(id,size){ const r=(App.state.data.printjob||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; } closeModal(); this._printHTML(this._printjobReceiptHtml(r,size)); },
@@ -3059,6 +3066,7 @@ const App = {
     modal(`<div class="modal-head"><h3 class="lo">${I.search} ເບິ່ງບິນສິ່ງພິມ ${esc(r.runno||'')}</h3>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn lo" style="background:#2f7df6;color:#fff;border:none" onclick="App.printjobPrint('${r.id}','a4')">${I.download} PDF / A4</button>
+        <button class="btn lo" style="background:#0e9f6e;color:#fff;border:none" onclick="App.printjobPrint('${r.id}','a5')">A5</button>
         <button class="btn lo" style="background:var(--brand);color:#fff;border:none" onclick="App.printjobPrint('${r.id}','slip')">${I.printer} ປິ້ນ</button>
         <button class="icon-btn" onclick="closeModal()">${I.close}</button>
       </div></div>
