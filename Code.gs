@@ -43,7 +43,8 @@ var SCHEMA = {
   pawn:      ["id","no","date","customer","item","amount","interest","status"],
   produce:   ["id","date","product","qty","note"],
   printjob:  ["id","runno","name","phone","orderdate","pickupdate","content","bgcolor","textcolor","size","price","note","status","recorded","image","printno","printdate","currency"],
-  settings:  ["id","storename","currency","phone","addr","acct","email","logo","qr","brand","bg"]
+  settings:  ["id","storename","currency","phone","addr","acct","email","logo","qr","brand","bg"],
+  cashbook:  ["id","date","type","category","desc","amount","channel","currency","recorded"]
 };
 
 function doGet(e)  { return handle(e); }

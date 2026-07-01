@@ -692,6 +692,11 @@ const DEMO = {
   ], pawn:[], produce:[], printjob:[
     {id:"pj1", runno:"PJ-00101", name:"ຮ້ານ ກາເຟ ດອຍ", phone:"2055501234", orderdate:"2026-06-25", pickupdate:"2026-06-28", content:"ປ້າຍໂຄສະນາ ໜ້າຮ້ານ", bgcolor:"ດຳ", textcolor:"ຄຳ/ທອງ", size:"1m x 2m", price:350000, note:"ຮີບ", status:"ກຳລັງເຮັດ", recorded:"2026-06-25"},
   ], returns:[],
+  cashbook:[
+    {id:"cb1",date:"2026-06-28",type:"ຮັບ",category:"ຄ່າບໍລິການ",desc:"ຄ່າພິມເອກະສານ",amount:120000,channel:"ເງິນສົດ",currency:"ກີບ",recorded:"2026-06-28"},
+    {id:"cb2",date:"2026-06-29",type:"ຈ່າຍ",category:"ຄ່ານ້ຳ-ໄຟ",desc:"ຄ່າໄຟຟ້າ ເດືອນ 6",amount:250000,channel:"ໂອນ",currency:"ກີບ",recorded:"2026-06-29"},
+    {id:"cb3",date:"2026-06-30",type:"ຈ່າຍ",category:"ຊື້ອຸປະກອນ",desc:"ຊື້ໝຶກພິມ",amount:1500,channel:"ເງິນສົດ",currency:"ບາດ",recorded:"2026-06-30"},
+  ],
   units:[ {id:"un1",name:"ໜ່ວຍ",note:""},{id:"un2",name:"ຊຸດ",note:""},{id:"un3",name:"ເສັ້ນ",note:""},{id:"un4",name:"ກ່ອງ",note:""} ],
   prodcats:[ {id:"pc1",name:"ຄອມພິວເຕີ",note:""},{id:"pc2",name:"ອຸປະກອນ",note:""},{id:"pc3",name:"ຈໍພາບ",note:""},{id:"pc4",name:"ສຽງ",note:""} ],
   sizes:[ {id:"sz1",name:"S",note:""},{id:"sz2",name:"M",note:""},{id:"sz3",name:"L",note:""} ],
@@ -1125,24 +1130,25 @@ const App = {
     },
 
     async reports(c){
-      const data = await Store.list('sales'); App.state.data.sales=data;
+      const [sales,repair,printjob,cashbook] = await Promise.all([Store.list('sales'),Store.list('repair'),Store.list('printjob'),Store.list('cashbook')]);
+      App.state.data.sales=sales; App.state.data.repair=repair; App.state.data.printjob=printjob; App.state.data.cashbook=cashbook;
       App.state.repFrom=App.state.repFrom||new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().slice(0,10);
       App.state.repTo=App.state.repTo||new Date().toISOString().slice(0,10);
-      App.state.repGroup=App.state.repGroup||'day';
+      App.state.repType=App.state.repType||'all';
+      const opt=(v,t)=>`<option value="${v}"${App.state.repType===v?' selected':''}>${t}</option>`;
       c.innerHTML=`
       <div class="card"><div class="card-head" style="gap:9px;flex-wrap:wrap">
-        <h3>${I.report}<span class="lo">ລາຍງານການຂາຍ</span></h3>
+        <h3>${I.report}<span class="lo">ລາຍງານການເງິນລວມ</span></h3>
         <div class="card-tools" style="flex-wrap:wrap;gap:8px">
-          <div class="date-range">${I.cal}<input type="date" id="repFrom" value="${App.state.repFrom}"><span>—</span><input type="date" id="repTo" value="${App.state.repTo}"></div>
-          <select class="inp lo" id="repGroup" onchange="App.repFilter()"><option value="day"${App.state.repGroup==='day'?' selected':''}>ສະຫຼຸບຕາມວັນ</option><option value="month"${App.state.repGroup==='month'?' selected':''}>ສະຫຼຸບຕາມເດືອນ</option><option value="year"${App.state.repGroup==='year'?' selected':''}>ສະຫຼຸບຕາມປີ</option></select>
+          <select class="inp lo" id="repType" onchange="App.repFilter()">${opt('all','ທຸກຟັງຊັນ (ລວມ)')}${opt('sales','ຂາຍໜ້າຮ້ານ')}${opt('repair','ສ້ອມແປງ')}${opt('printjob','ສິ່ງພິມ')}${opt('cashbook','ລາຍຮັບ-ລາຍຈ່າຍ')}</select>
+          <div class="date-range">${I.cal}<input type="date" id="repFrom" value="${App.state.repFrom}" onchange="App.repFilter()"><span>—</span><input type="date" id="repTo" value="${App.state.repTo}" onchange="App.repFilter()"></div>
           <button class="btn btn-primary lo" onclick="App.repFilter()">${I.search} ສະຫຼຸບ</button>
-          <button class="btn lo" onclick="App.exportCSV('sales')">${I.download} Excel</button>
         </div></div></div>
       <div id="repStat" class="stat-row" style="margin-top:14px"></div>
-      <div class="card" style="margin-top:14px"><div class="card-head"><h3>${I.trend}<span class="lo">ສະຫຼຸບຍອດຂາຍຕາມຊ່ວງເວລາ</span></h3></div>
-        <div class="table-wrap"><table><thead><tr><th class="lo">ຊ່ວງເວລາ</th><th class="lo">ຈຳນວນບິນ</th><th class="lo">ຍອດຂາຍ</th><th class="lo">ກຳໄລໂດຍປະມານ</th></tr></thead><tbody id="repGroupBody"></tbody></table></div></div>
-      <div class="card" style="margin-top:14px"><div class="card-head"><h3>${I.receipt}<span class="lo">ລາຍລະອຽດບິນ</span></h3><span class="count lo" id="repDetailCount"></span></div>
-        <div class="table-wrap"><table><thead><tr><th class="lo">Runno</th><th class="lo">ວັນທີ</th><th class="lo">ພະນັກງານ</th><th class="lo">ລູກຄ້າ</th><th class="lo">ຍອດລວມ</th><th class="lo">ການຊຳລະ</th><th class="lo">ສະຖານະ</th></tr></thead><tbody id="repDetailBody"></tbody></table></div></div>`;
+      <div class="card" style="margin-top:14px"><div class="card-head"><h3>${I.trend}<span class="lo">ສະຫຼຸບແຍກຕາມຟັງຊັນ ແລະ ສະກຸນເງິນ</span></h3></div>
+        <div class="table-wrap"><table><thead><tr><th class="lo">ຟັງຊັນ</th><th class="lo">ຈຳນວນລາຍການ</th><th class="lo">ຍອດ (ກີບ)</th><th class="lo">ຍອດ (ບາດ)</th></tr></thead><tbody id="repFnBody"></tbody></table></div></div>
+      <div class="card" style="margin-top:14px"><div class="card-head"><h3>${I.receipt}<span class="lo">ລາຍລະອຽດລາຍການ</span></h3><span class="count lo" id="repDetailCount"></span></div>
+        <div class="table-wrap"><table><thead><tr><th class="lo">ວັນທີ</th><th class="lo">ຟັງຊັນ</th><th class="lo">ເລກທີ</th><th class="lo">ລູກຄ້າ / ລາຍລະອຽດ</th><th class="lo">ຈຳນວນເງິນ</th><th class="lo">ໝາຍເຫດ</th></tr></thead><tbody id="repDetailBody"></tbody></table></div></div>`;
       App.repFilter();
     },
 
@@ -1184,13 +1190,14 @@ const App = {
     },
 
     async purchase(c){
-      const [pur,ven] = await Promise.all([Store.list('purchase'),Store.list('vendors')]);
-      App.state.data.purchase=pur; App.state.data.vendors=ven;
+      const [pur,ven,cb] = await Promise.all([Store.list('purchase'),Store.list('vendors'),Store.list('cashbook')]);
+      App.state.data.purchase=pur; App.state.data.vendors=ven; App.state.data.cashbook=cb;
       const sub = App.state.purSub||'list';
       const navItem=(id,t,ic)=>`<div class="it ${sub===id?'active':''}" onclick="App.purGo('${id}')">${I[ic]}<span>${esc(t)}</span></div>`;
       c.innerHTML=`<div class="submod">
         <aside class="subnav">
           ${navItem('list','ລາຍການຈັດຊື້','buy')}
+          ${navItem('cashbook','ລາຍຮັບ-ລາຍຈ່າຍ','money')}
           ${navItem('vendors','ຄູ່ຄ້າ','folder')}
           <div class="grp">ລາຍງານ</div>
           ${navItem('daily','ລາຍຈ່າຍລາຍວັນ','report')}
@@ -1997,6 +2004,7 @@ const App = {
     const box=document.getElementById('purMain'); if(!box)return;
     if(sub==='list') box.innerHTML=this.purListHTML();
     else if(sub==='vendors') box.innerHTML=this.purVendorsHTML();
+    else if(sub==='cashbook'){ box.innerHTML=this.cbHTML(); this.cbFilter(); }
     else box.innerHTML=this.purReportHTML(sub);
     if(sub==='list') this.purFilter();
   },
@@ -2070,6 +2078,123 @@ const App = {
     const p=(this.state.data.purchase||[]).find(x=>x.id===id); if(!p)return;
     p.imported=true; await Store.update('purchase',{id,imported:true});
     toast('ນຳເຂົ້າສະຕັອກ '+p.no+' ສຳເລັດ','ok'); this.purFilter();
+  },
+  cbHTML(){
+    this.state.cbType=this.state.cbType||'ຈ່າຍ';
+    this.state.cbCur=this.state.cbCur||CONFIG.CURRENCY;
+    this.state.cbFrom=this.state.cbFrom||this._firstOfMonth();
+    this.state.cbTo=this.state.cbTo||this._today();
+    return `<div class="card"><div id="cbForm">${this.cbFormHTML()}</div></div>
+      <div class="card" style="margin-top:14px">
+        <div class="card-head" style="gap:9px;flex-wrap:wrap">
+          <h3>${I.receipt}<span class="lo">ປະຫວັດ ລາຍຮັບ-ລາຍຈ່າຍ</span></h3>
+          <div class="card-tools" style="flex-wrap:wrap;gap:8px">
+            <div class="search" style="min-width:170px">${I.search}<input class="inp" id="cbQ" placeholder="ຄົ້ນຫາ ລາຍການ/ໝວດ" oninput="App.cbFilter()"></div>
+            <select class="inp lo" id="cbFType" onchange="App.cbFilter()"><option value="all">ທຸກປະເພດ</option><option value="ຮັບ">ສະເພາະລາຍຮັບ</option><option value="ຈ່າຍ">ສະເພາະລາຍຈ່າຍ</option></select>
+            <select class="inp lo" id="cbFCur" onchange="App.cbFilter()"><option value="all">ທຸກສະກຸນ</option><option value="ກີບ">ກີບ</option><option value="ບາດ">ບາດ</option></select>
+            <div class="date-range">${I.cal}<input type="date" id="cbFrom" value="${this.state.cbFrom}" onchange="App.cbFilter()"><span>—</span><input type="date" id="cbTo" value="${this.state.cbTo}" onchange="App.cbFilter()"></div>
+          </div>
+        </div>
+        <div id="cbStat" class="stat-row" style="margin:0 16px 8px"></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th class="lo">ວັນທີ</th><th class="lo">ປະເພດ</th><th class="lo">ລາຍການ / ໝວດໝູ່</th><th class="lo">ຈຳນວນເງິນ</th><th class="lo">ຊ່ອງທາງ</th><th class="lo">ຈັດການ</th></tr></thead>
+          <tbody id="cbBody"></tbody>
+        </table></div>
+        <div style="padding:0 16px 16px"><button class="btn lo" onclick="App.exportCSV('cashbook')">${I.download} ດາວໂຫຼດ Excel</button></div>
+      </div>`;
+  },
+  cbFormHTML(){
+    var t=this.state.cbType||'ຈ່າຍ'; var cur=this.state.cbCur||CONFIG.CURRENCY;
+    var dr=this.state.cbDraft||{}; var selCat=this.state.cbEditCat||'';
+    var cats = t==='ຮັບ' ? ['ຂາຍໜ້າຮ້ານ','ຄ່າບໍລິການ','ຮັບຊຳລະໜີ້','ອື່ນໆ'] : ['ຊື້ອຸປະກອນ','ຄ່ານ້ຳ-ໄຟ','ຄ່າເຊົ່າ','ເງິນເດືອນ','ຄ່າຂົນສົ່ງ','ອື່ນໆ'];
+    var green='linear-gradient(135deg,#16a34a,#22c55e)'; var red='linear-gradient(135deg,#e11d48,#f43f5e)';
+    return `<div class="card-head"><h3>${I.money}<span class="lo">ບັນທຶກ ລາຍຮັບ-ລາຍຈ່າຍ</span></h3></div>
+      <div class="modal-body">
+        ${this.state.cbEditId?`<div style="background:#fef9c3;color:#854d0e;border-radius:8px;padding:6px 10px;margin-bottom:10px;font-size:13px">✎ ກຳລັງແກ້ໄຂລາຍການ <button class="btn btn-sm lo" style="margin-left:8px" onclick="App.cbCancelEdit()">ຍົກເລີກ</button></div>`:''}
+        <div class="seg" style="margin-bottom:12px">
+          <button class="${cur==='ກີບ'?'active':''}" onclick="App.cbSetCur('ກີບ')">LA ກີບ (LAK)</button>
+          <button class="${cur==='ບາດ'?'active':''}" onclick="App.cbSetCur('ບາດ')">TH ບາດ (THB)</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <button class="btn lo" style="flex:1;justify-content:center;padding:12px;border:none;font-weight:700;color:#fff;background:${t==='ຮັບ'?green:'#cbd5e1'}" onclick="App.cbSetType('ຮັບ')">▼ ລາຍຮັບ</button>
+          <button class="btn lo" style="flex:1;justify-content:center;padding:12px;border:none;font-weight:700;color:#fff;background:${t==='ຈ່າຍ'?red:'#cbd5e1'}" onclick="App.cbSetType('ຈ່າຍ')">▲ ລາຍຈ່າຍ</button>
+        </div>
+        <div class="form-grid">
+          <div class="fg"><label>${I.cal} ວັນທີ</label><input class="inp" type="date" id="cbDate" value="${dr.date||this._today()}"></div>
+          <div class="fg"><label>ໝວດໝູ່</label><select class="inp" id="cbCat">${cats.map(function(c){return '<option'+(c===selCat?' selected':'')+'>'+esc(c)+'</option>';}).join('')}</select></div>
+          <div class="fg full"><label>✎ ລາຍການ / ຊື່ລູກຄ້າ</label><input class="inp" id="cbDesc" placeholder="ພິມລາຍລະອຽດ..." value="${esc(dr.desc||'')}"></div>
+          <div class="fg"><label>${I.money} ຈຳນວນເງິນ</label><input class="inp" type="number" id="cbAmt" placeholder="0" value="${esc(dr.amt||'')}"></div>
+          <div class="fg"><label>ຊ່ອງທາງ</label><select class="inp" id="cbCh"><option${(dr.ch==='ເງິນສົດ'||!dr.ch)?' selected':''}>ເງິນສົດ</option><option${dr.ch==='ໂອນ'?' selected':''}>ໂອນ</option><option${dr.ch==='ບັດ'?' selected':''}>ບັດ</option></select></div>
+        </div>
+        <button class="btn lo" style="width:100%;justify-content:center;padding:14px;margin-top:14px;border:none;color:#fff;font-size:16px;background:linear-gradient(135deg,var(--brand),var(--brand-lite))" onclick="App.cbSave()">${I.check} ບັນທຶກຂໍ້ມູນ</button>
+      </div>`;
+  },
+  _cbStash(){ var g=function(id){var e=document.getElementById(id);return e?e.value:'';}; this.state.cbDraft={date:g('cbDate'),desc:g('cbDesc'),amt:g('cbAmt'),ch:g('cbCh')}; },
+  cbSetType(t){ this._cbStash(); this.state.cbType=t; var el=document.getElementById('cbForm'); if(el) el.innerHTML=this.cbFormHTML(); },
+  cbSetCur(c){ this._cbStash(); this.state.cbCur=c; var el=document.getElementById('cbForm'); if(el) el.innerHTML=this.cbFormHTML(); },
+  cbCancelEdit(){ this.state.cbEditId=null; this.state.cbEditCat=null; this.state.cbDraft=null; var el=document.getElementById('cbForm'); if(el) el.innerHTML=this.cbFormHTML(); },
+  cbSave(){
+    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    var amt=+g('cbAmt')||0;
+    if(amt<=0){ toast('ໃສ່ຈຳນວນເງິນກ່ອນ','err'); return; }
+    var row={ date:g('cbDate')||this._today(), type:this.state.cbType||'ຈ່າຍ', category:g('cbCat'),
+      desc:g('cbDesc'), amount:amt, channel:g('cbCh'), currency:this.state.cbCur||CONFIG.CURRENCY,
+      recorded:new Date().toISOString().slice(0,10) };
+    this.state.data.cashbook=this.state.data.cashbook||[];
+    if(this.state.cbEditId){
+      row.id=this.state.cbEditId;
+      var arr=this.state.data.cashbook; var i=arr.map(function(x){return x.id;}).indexOf(row.id); if(i>=0)arr[i]=Object.assign({},arr[i],row);
+      Store.update('cashbook',row).catch(function(){ toast('⚠️ ບັນທຶກຂຶ້ນ Sheet ບໍ່ສຳເລັດ','err'); });
+      this.state.cbEditId=null; this.state.cbEditCat=null;
+      toast('ແກ້ໄຂແລ້ວ','ok');
+    } else {
+      row.id='cb'+Date.now();
+      this.state.data.cashbook.unshift(row);
+      Store.create('cashbook',row).catch(function(){ toast('⚠️ ບັນທຶກຂຶ້ນ Sheet ບໍ່ສຳເລັດ','err'); });
+      toast((row.type==='ຮັບ'?'ບັນທຶກລາຍຮັບ ':'ບັນທຶກລາຍຈ່າຍ ')+fmt(amt)+' '+row.currency,'ok');
+    }
+    this.state.cbDraft=null;
+    var f=document.getElementById('cbForm'); if(f) f.innerHTML=this.cbFormHTML();
+    this.cbFilter();
+  },
+  cbEdit(id){
+    var r=(this.state.data.cashbook||[]).find(function(x){return x.id===id;}); if(!r)return;
+    this.state.cbType=r.type; this.state.cbCur=r.currency||CONFIG.CURRENCY;
+    this.state.cbDraft={date:fmtDate(r.date),desc:r.desc,amt:r.amount,ch:r.channel};
+    this.state.cbEditId=id; this.state.cbEditCat=r.category;
+    var f=document.getElementById('cbForm'); if(f) f.innerHTML=this.cbFormHTML();
+    try{ window.scrollTo(0,0); }catch(e){}
+  },
+  cbDel(id){ this.delRowCB('cashbook',id,()=>{ this.state.data.cashbook=(this.state.data.cashbook||[]).filter(x=>x.id!==id); this.cbFilter(); }); },
+  cbFilter(){
+    var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    var q=(g('cbQ')||'').toLowerCase(); var ft=g('cbFType')||'all'; var fc=g('cbFCur')||'all';
+    var from=g('cbFrom'), to=g('cbTo');
+    if(from)this.state.cbFrom=from; if(to)this.state.cbTo=to;
+    var rows=(this.state.data.cashbook||[]).filter(function(r){
+      var d=String(r.date||'').slice(0,10); var okD=(!from||d>=from)&&(!to||d<=to);
+      var okT=ft==='all'||r.type===ft; var okC=fc==='all'||((r.currency==='ບາດ')?'ບາດ':'ກີບ')===fc;
+      var okQ=!q||[r.desc,r.category,r.channel].some(function(v){return String(v||'').toLowerCase().indexOf(q)>=0;});
+      return okD&&okT&&okC&&okQ;
+    });
+    var sum={'ກີບ':{inc:0,exp:0},'ບາດ':{inc:0,exp:0}};
+    rows.forEach(function(r){ var cu=(r.currency==='ບາດ')?'ບາດ':'ກີບ'; if(r.type==='ຮັບ')sum[cu].inc+=(+r.amount||0); else sum[cu].exp+=(+r.amount||0); });
+    var st=document.getElementById('cbStat');
+    if(st){ st.innerHTML=['ກີບ','ບາດ'].map(function(cu){ var s=sum[cu]; var net=s.inc-s.exp;
+      return '<div class="stat-card"><div class="s-top"><span class="s-lbl">ສະກຸນ '+cu+'</span><div class="s-ico" style="background:var(--brand-soft);color:var(--brand-2)">'+I.money+'</div></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-top:8px"><span style="color:#16a34a;font-weight:700">ຮັບ '+fmt(s.inc)+'</span><span style="color:#e11d48;font-weight:700">ຈ່າຍ '+fmt(s.exp)+'</span></div>'+
+      '<div class="s-val" style="margin-top:6px">ເຫຼືອ '+fmt(net)+' <small>'+cu+'</small></div></div>';
+    }).join(''); }
+    var body=document.getElementById('cbBody'); if(!body)return;
+    if(!rows.length){ body.innerHTML='<tr><td colspan="6"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີລາຍການໃນຊ່ວງນີ້</div></div></td></tr>'; return; }
+    body.innerHTML=rows.map(function(r){ var inc=r.type==='ຮັບ';
+      return '<tr><td class="num muted">'+esc(fmtDate(r.date))+'</td>'+
+      '<td><span class="pill '+(inc?'pill-green':'pill-red')+'">'+(inc?'ລາຍຮັບ':'ລາຍຈ່າຍ')+'</span></td>'+
+      '<td class="lo"><b>'+esc(r.desc||'-')+'</b><div class="muted" style="font-size:11px">'+esc(r.category||'')+'</div></td>'+
+      '<td class="num" style="font-weight:800;color:'+(inc?'#16a34a':'#e11d48')+'">'+(inc?'+':'-')+fmt(r.amount)+' '+esc(r.currency||'ກີບ')+'</td>'+
+      '<td class="lo muted">'+esc(r.channel||'')+'</td>'+
+      '<td>'+rowActions("App.cbEdit('"+r.id+"')","App.cbDel('"+r.id+"')")+'</td></tr>';
+    }).join('');
   },
   delPurchase(id){ this.delRowCB('purchase',id,()=>{ this.state.data.purchase=(this.state.data.purchase||[]).filter(x=>x.id!==id); this.purRender(); }); },
   purSettings(){
@@ -2442,21 +2567,41 @@ const App = {
   /* ---------- CREDIT MODULE ---------- */
   _daysBetween(d){ try{ return Math.max(0,Math.round((Date.now()-new Date(String(d).slice(0,10)).getTime())/86400000)); }catch(e){ return 0; } },
   repFilter(){
-    const gv=function(id){ var el=document.getElementById(id); return el?el.value:''; };
-    const from=gv('repFrom'), to=gv('repTo'); const group=gv('repGroup')||'day';
-    if(from)this.state.repFrom=from; if(to)this.state.repTo=to; this.state.repGroup=group;
-    var rows=(this.state.data.sales||[]).filter(function(s){ var d=String(s.date||'').slice(0,10); return (!from||d>=from)&&(!to||d<=to); });
-    var total=rows.reduce(function(a,b){return a+(+b.total||0);},0);
-    var profit=Math.round(total*0.12);
-    var st=document.getElementById('repStat'); if(st) st.innerHTML='<div class="stat-card"><div class="s-top"><span class="s-lbl">ຍອດຂາຍ (ຊ່ວງທີ່ເລືອກ)</span><div class="s-ico" style="background:var(--brand-soft);color:var(--brand-2)">'+I.money+'</div></div><div class="s-val">'+fmt(total)+' <small>'+CONFIG.CURRENCY+'</small></div></div><div class="stat-card"><div class="s-top"><span class="s-lbl">ຈຳນວນບິນ</span><div class="s-ico" style="background:#e7f0fe;color:#1f63d6">'+I.receipt+'</div></div><div class="s-val">'+rows.length+'</div></div><div class="stat-card"><div class="s-top"><span class="s-lbl">ກຳໄລໂດຍປະມານ</span><div class="s-ico" style="background:#fdf1dc;color:#a9781a">'+I.trend+'</div></div><div class="s-val">'+fmt(profit)+' <small>'+CONFIG.CURRENCY+'</small></div></div>';
-    var keyOf=function(d){ d=String(d||'').slice(0,10); if(group==='year')return d.slice(0,4); if(group==='month')return d.slice(0,7); return d; };
-    var g={}; rows.forEach(function(s){ var k=keyOf(s.date); if(!g[k])g[k]={n:0,t:0}; g[k].n++; g[k].t+=(+s.total||0); });
-    var keys=Object.keys(g).sort().reverse();
-    var gb=document.getElementById('repGroupBody');
-    if(gb) gb.innerHTML=keys.length? keys.map(function(k){return '<tr><td class="lo" style="font-weight:600">'+esc(k)+'</td><td class="num">'+g[k].n+'</td><td class="num" style="font-weight:700">'+fmt(g[k].t)+'</td><td class="num muted">'+fmt(Math.round(g[k].t*0.12))+'</td></tr>';}).join('')+'<tr style="font-weight:800;background:var(--surface-2)"><td class="lo">ລວມ</td><td class="num">'+rows.length+'</td><td class="num">'+fmt(total)+' '+CONFIG.CURRENCY+'</td><td class="num">'+fmt(profit)+'</td></tr>' : '<tr><td colspan="4"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີຂໍ້ມູນໃນຊ່ວງນີ້</div></div></td></tr>';
+    var gv=function(id){ var el=document.getElementById(id); return el?el.value:''; };
+    var from=gv('repFrom'), to=gv('repTo'); var type=gv('repType')||'all';
+    if(from)this.state.repFrom=from; if(to)this.state.repTo=to; this.state.repType=type;
+    var inRange=function(d){ d=String(d||'').slice(0,10); return (!from||d>=from)&&(!to||d<=to); };
+    var curOf=function(x){ return (x==='ບາດ')?'ບາດ':'ກີບ'; };
+    var tx=[]; var S=this.state.data;
+    if(type==='all'||type==='sales'){ (S.sales||[]).forEach(function(s){ if(!inRange(s.date))return; tx.push({date:String(s.date||'').slice(0,16),fn:'ຂາຍ',no:s.billno||s.runno||'',party:s.customer||'ທົ່ວໄປ',detail:(s.items||'0')+' ລາຍການ',cur:curOf(s.currency),io:'in',amt:+s.total||0,note:s.status||''}); }); }
+    if(type==='all'||type==='repair'){ (S.repair||[]).forEach(function(r){ var dd=r.printdate||r.recorded; if(!inRange(dd))return; tx.push({date:fmtDate(dd),fn:'ສ້ອມແປງ',no:r.printno||r.runno||'',party:r.name||'',detail:((r.product||'')+' '+(r.brand||'')).trim(),cur:curOf(r.currency),io:'in',amt:+r.cost||0,note:r.status||''}); }); }
+    if(type==='all'||type==='printjob'){ (S.printjob||[]).forEach(function(p){ var dd=p.printdate||p.recorded||p.orderdate; if(!inRange(dd))return; tx.push({date:fmtDate(dd),fn:'ສິ່ງພິມ',no:p.printno||p.runno||'',party:p.name||'',detail:p.content||'',cur:curOf(p.currency),io:'in',amt:+p.price||0,note:p.status||''}); }); }
+    if(type==='all'||type==='cashbook'){ (S.cashbook||[]).forEach(function(cb){ if(!inRange(cb.date))return; var inc=cb.type==='ຮັບ'; tx.push({date:fmtDate(cb.date),fn:inc?'ລາຍຮັບ':'ລາຍຈ່າຍ',no:'',party:cb.desc||'',detail:cb.category||'',cur:curOf(cb.currency),io:inc?'in':'out',amt:+cb.amount||0,note:cb.channel||''}); }); }
+    var sum={'ກີບ':{inc:0,exp:0,n:0},'ບາດ':{inc:0,exp:0,n:0}};
+    tx.forEach(function(t){ var s=sum[t.cur]; s.n++; if(t.io==='in')s.inc+=t.amt; else s.exp+=t.amt; });
+    var st=document.getElementById('repStat');
+    if(st){ st.innerHTML=['ກີບ','ບາດ'].map(function(cu){ var s=sum[cu]; var net=s.inc-s.exp;
+      return '<div class="stat-card"><div class="s-top"><span class="s-lbl">ສະກຸນ '+cu+'</span><div class="s-ico" style="background:var(--brand-soft);color:var(--brand-2)">'+I.money+'</div></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-top:8px"><span style="color:#16a34a;font-weight:700">ຮັບ '+fmt(s.inc)+'</span><span style="color:#e11d48;font-weight:700">ຈ່າຍ '+fmt(s.exp)+'</span></div>'+
+      '<div class="s-val" style="margin-top:6px">ຍອດເຫຼືອ '+fmt(net)+' <small>'+cu+'</small></div></div>';
+    }).join(''); }
+    var fnOrder=['ຂາຍ','ສ້ອມແປງ','ສິ່ງພິມ','ລາຍຮັບ','ລາຍຈ່າຍ'];
+    var byFn={};
+    tx.forEach(function(t){ if(!byFn[t.fn])byFn[t.fn]={n:0,kip:0,baht:0,io:t.io}; var b=byFn[t.fn]; b.n++; if(t.cur==='ບາດ')b.baht+=t.amt; else b.kip+=t.amt; });
+    var fb=document.getElementById('repFnBody');
+    if(fb){ var html=''; var tK=0,tB=0;
+      fnOrder.forEach(function(fn){ var b=byFn[fn]; if(!b)return; var neg=(fn==='ລາຍຈ່າຍ'); var sign=neg?'-':''; if(neg){tK-=b.kip;tB-=b.baht;}else{tK+=b.kip;tB+=b.baht;}
+        html+='<tr><td class="lo" style="font-weight:600">'+fn+'</td><td class="num">'+b.n+'</td><td class="num" style="color:'+(neg?'#e11d48':'inherit')+'">'+sign+fmt(b.kip)+'</td><td class="num" style="color:'+(neg?'#e11d48':'inherit')+'">'+sign+fmt(b.baht)+'</td></tr>';
+      });
+      html+='<tr style="font-weight:800;background:var(--surface-2)"><td class="lo">ຍອດເຫຼືອສຸດທິ</td><td class="num">'+tx.length+'</td><td class="num">'+fmt(tK)+' ກີບ</td><td class="num">'+fmt(tB)+' ບາດ</td></tr>';
+      fb.innerHTML= (Object.keys(byFn).length? html : '<tr><td colspan="4"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີຂໍ້ມູນ</div></div></td></tr>');
+    }
+    tx.sort(function(a,b){ return a.date<b.date?1:(a.date>b.date?-1:0); });
     var db=document.getElementById('repDetailBody');
-    if(db) db.innerHTML=rows.length? rows.map(function(s){return '<tr><td class="num" style="font-weight:700">'+esc(s.runno)+'</td><td class="num muted">'+esc(String(s.date).slice(0,16))+'</td><td class="lo">'+esc(s.cashier)+'</td><td class="lo">'+(esc(s.customer)||'-')+'</td><td class="num" style="font-weight:700">'+fmt(s.total)+' '+esc(s.currency||CONFIG.CURRENCY)+'</td><td><span class="pill pill-blue">'+esc(s.paytype)+'</span></td><td><span class="pill '+(((+s.total)-(+s.paid))>0?'pill-amber':'pill-green')+'">'+esc(s.status)+'</span></td></tr>';}).join('') : '<tr><td colspan="7"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີບິນ</div></div></td></tr>';
-    var dc=document.getElementById('repDetailCount'); if(dc)dc.textContent=rows.length+' ບິນ';
+    if(db){ db.innerHTML=tx.length? tx.map(function(t){ var inc=t.io==='in';
+      return '<tr><td class="num muted">'+esc(t.date)+'</td><td><span class="pill '+(t.fn==='ລາຍຈ່າຍ'?'pill-red':(t.fn==='ຂາຍ'?'pill-blue':'pill-green'))+'">'+esc(t.fn)+'</span></td><td class="num">'+esc(t.no||'-')+'</td><td class="lo">'+(esc(t.party)||'-')+'<div class="muted" style="font-size:11px">'+esc(t.detail)+'</div></td><td class="num" style="font-weight:700;color:'+(inc?'#16a34a':'#e11d48')+'">'+(inc?'+':'-')+fmt(t.amt)+' '+esc(t.cur)+'</td><td class="lo muted">'+esc(t.note)+'</td></tr>';
+    }).join('') : '<tr><td colspan="6"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີລາຍການ</div></div></td></tr>'; }
+    var dc=document.getElementById('repDetailCount'); if(dc)dc.textContent=tx.length+' ລາຍການ';
   },
   crFilter(){
     const q=((document.getElementById('crQ')||{}).value||'').toLowerCase();
