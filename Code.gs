@@ -22,7 +22,7 @@ var USERS = [
 
 // ໂຄງສ້າງຖັນ (headers) ຂອງແຕ່ລະຕາຕະລາງ
 var SCHEMA = {
-  products:  ["id","barcode","image","name","unit","unitBig","bigRatio","priceBig","costBig","description","category","vendor","cost","price","price2","price3","price4","price5","points","zone","trackstock","stock","lowstock","weight","vat","size","color","linkParent","linkRatio","linkType"],
+  products:  ["id","barcode","image","name","unit","unitBig","bigRatio","priceBig","costBig","description","category","vendor","cost","price","price2","price3","price4","price5","points","zone","trackstock","stock","lowstock","weight","vat","size","color","linkParent","linkRatio","linkType","currency"],
   units:     ["id","name","note"],
   prodcats:  ["id","name","note"],
   sizes:     ["id","name","note"],

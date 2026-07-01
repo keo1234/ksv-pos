@@ -2377,7 +2377,8 @@ const App = {
           <div class="fg full"><label>ຊື່ສິນຄ້າ <span class="muted" style="font-weight:400;font-size:11px">(ພິມແລ້ວເລືອກສິນຄ້າຄ້າຍກັນເພື່ອດຶງຂໍ້ມູນ)</span></label><input class="inp" data-k="name" list="prodNameList" ${id?'':'onchange="App.prodPrefillFromName(this.value)"'} value="${esc(p.name)}"><datalist id="prodNameList">${(this.state.data.products||[]).map(x=>'<option value="'+esc(x.name)+'"></option>').join('')}</datalist></div>
           <div class="fg"><label>ຫົວໜ່ວຍຍ່ອຍ (ຂາຍແຍກ)</label><select class="inp lo" data-k="unit">${opt(units,p.unit,'ເລືອກ')}</select></div>
           <div class="fg"><label>ໝວດໝູ່</label><select class="inp lo" data-k="category">${opt(cats,p.category,'ເລືອກໝວດໝູ່')}</select></div>
-          <div class="fg full"><label>ລາຍລະອຽດ</label><textarea data-k="description">${esc(p.description)}</textarea></div>
+          <div class="fg"><label>ລາຍລະອຽດ</label><textarea data-k="description">${esc(p.description)}</textarea></div>
+          <div class="fg"><label>ສະກຸນເງິນ (ລາຄາ)</label><select class="inp lo" data-k="currency"><option ${(p.currency||CONFIG.CURRENCY)==='ກີບ'?'selected':''}>ກີບ</option><option ${p.currency==='ບາດ'?'selected':''}>ບາດ</option></select></div>
           <div class="fg"><label>Vendor / Supplier</label><select class="inp lo" data-k="vendor">${opt(vens,p.vendor,'ເລືອກ')}</select></div>
           <div class="fg"><label>ຕົ້ນທຶນ</label><input class="inp" data-k="cost" type="number" value="${p.cost||''}" placeholder="ຕົ້ນທຶນ"></div>
           ${variant?`<div class="fg"><label>Size</label><select class="inp lo" data-k="size">${opt(this.state.data.sizes||[],p.size,'ເລືອກ')}</select></div>
@@ -2438,7 +2439,7 @@ const App = {
     var p=(this.state.data.products||[]).find(function(x){return String(x.name)===String(name);});
     if(!p) return;
     var f=document.getElementById('prodForm'); if(!f) return;
-    ['unit','category','vendor','zone','cost','price','price2','price3','price4','price5','points','description','unitBig','bigRatio','priceBig','costBig','lowstock','weight','trackstock'].forEach(function(k){
+    ['unit','category','vendor','zone','cost','price','price2','price3','price4','price5','points','description','unitBig','bigRatio','priceBig','costBig','lowstock','weight','trackstock','currency'].forEach(function(k){
       var el=f.querySelector('[data-k="'+k+'"]'); if(!el) return; el.value=(p[k]!=null?p[k]:'');
     });
     try{ toast('ດຶງຂໍ້ມູນຈາກ "'+p.name+'" ມາເປັນແບບ — ແກ້ໄຂ ຫຼື ປ່ຽນຊື່ໄດ້','ok'); }catch(e){}
