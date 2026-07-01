@@ -2535,31 +2535,20 @@ const App = {
           <div class="fg full"><label>ເລືອກສິນຄ້າ</label><select class="inp lo" id="soProd">${prods.map(p=>`<option value="${p.id}">${esc(p.name)} — ສະຕັອກ ${fmt(p.stock)}</option>`).join('')}</select></div>
           <div class="fg"><label>${kind==='stockcount'?'ຈຳນວນທີ່ນັບໄດ້':'ຈຳນວນ'}</label><input class="inp" id="soQty" type="number" value="${kind==='stockcount'?'':'1'}"></div>
           <div class="fg"><label>ໝາຍເຫດ</label><input class="inp" id="soNote" placeholder="ໝາຍເຫດ"></div>
-          ${kind==='stockout'?`<div class="fg full"><label class="chk" style="color:var(--danger);font-weight:600"><input type="checkbox" id="soRemove"> ລຶບສິນຄ້ານີ້ອອກຈາກລະບົບທັງໝົດ (ນຳອອກໝົດ — ກູ້ຄືນບໍ່ໄດ້)</label></div>`:''}
         </div>
         <button class="btn btn-primary lo" style="margin-top:14px" onclick="App.stockOpDo('${kind}')">${I.check} ${kind==='stockin'?'ນຳເຂົ້າ':kind==='stockout'?'ນຳອອກ':'ບັນທຶກການນັບ'}</button>
       </div>
       <div class="card-head" style="border-top:1px solid var(--line)"><h3>${I.trend}<span class="lo">ປະຫວັດການເຄື່ອນໄຫວລ່າສຸດ</span></h3></div>
-      <div class="table-wrap"><table><thead><tr><th class="lo">ວັນທີ</th><th class="lo">ສິນຄ້າ</th><th class="lo">ປະເພດ</th><th class="lo">ຈຳນວນ</th><th class="lo">ຍອດຄົງເຫຼືອ</th><th class="lo">ໂດຍ</th><th class="lo">ໝາຍເຫດ</th></tr></thead>
+      <div class="table-wrap"><table><thead><tr><th class="lo">ວັນທີ</th><th class="lo">ສິນຄ້າ</th><th class="lo">ປະເພດ</th><th class="lo">ຈຳນວນ</th><th class="lo">ຍອດຄົງເຫຼືອ</th><th class="lo">ໂດຍ</th><th class="lo">ໝາຍເຫດ</th><th class="lo">ຈັດການ</th></tr></thead>
       <tbody>${(this.state.data.stockmoves||[]).map(m=>`<tr><td class="num muted">${esc(m.date)}</td><td class="lo">${esc(m.product)}</td>
         <td><span class="pill ${m.type==='ເຂົ້າ'?'pill-green':m.type==='ອອກ'?'pill-red':'pill-blue'}">${esc(m.type)}</span></td>
-        <td class="num">${fmt(m.qty)}</td><td class="num">${fmt(m.balance)}</td><td class="lo">${esc(m.by)}</td><td class="lo muted">${esc(m.note)||'-'}</td></tr>`).join('')||`<tr><td colspan="7"><div class="empty">${I.inbox}<div class="lo">ຍັງບໍ່ມີການເຄື່ອນໄຫວ</div></div></td></tr>`}</tbody></table></div>
+        <td class="num">${fmt(m.qty)}</td><td class="num">${fmt(m.balance)}</td><td class="lo">${esc(m.by)}</td><td class="lo muted">${esc(m.note)||'-'}</td><td>${rowActions("App.editMove('"+m.id+"')","App.delMove('"+m.id+"')")}</td></tr>`).join('')||`<tr><td colspan="8"><div class="empty">${I.inbox}<div class="lo">ຍັງບໍ່ມີການເຄື່ອນໄຫວ</div></div></td></tr>`}</tbody></table></div>
     </div>`;
   },
   async stockOpDo(kind){
     const pid=document.getElementById('soProd').value; const qty=+(document.getElementById('soQty').value||0);
     const note=document.getElementById('soNote').value;
     const p=(this.state.data.products||[]).find(x=>x.id===pid); if(!p){toast('ເລືອກສິນຄ້າກ່ອນ','err');return;}
-    const rmEl=document.getElementById('soRemove'); const removeAll=(kind==='stockout' && rmEl && rmEl.checked);
-    if(removeAll){
-      if(!confirm('ຢືນຢັນ: ລຶບສິນຄ້າ "'+p.name+'" ອອກຈາກລະບົບທັງໝົດ? ກູ້ຄືນບໍ່ໄດ້.')) return;
-      const mv={date:new Date().toISOString().slice(0,16).replace('T',' '),product:p.name,type:'ອອກ (ລຶບ)',qty:(+p.stock||0),balance:0,by:this.state.user.name,note:note||'ລຶບສິນຄ້າອອກຈາກລະບົບ'};
-      await Store.create('stockmoves',mv);
-      await Store.remove('products',pid);
-      this.state.data.products=(this.state.data.products||[]).filter(x=>x.id!==pid);
-      this.state.data.stockmoves=await Store.list('stockmoves');
-      toast('ລຶບສິນຄ້າ "'+p.name+'" ອອກຈາກລະບົບແລ້ວ','ok'); this.prodRender(); return;
-    }
     let type,bal;
     if(kind==='stockin'){ p.stock=(+p.stock)+qty; type='ເຂົ້າ'; bal=p.stock; }
     else if(kind==='stockout'){ if(qty>+p.stock){toast('ສະຕັອກບໍ່ພຽງພໍ','err');return;} p.stock=(+p.stock)-qty; type='ອອກ'; bal=p.stock; }
@@ -2568,6 +2557,43 @@ const App = {
     const move={date:new Date().toISOString().slice(0,16).replace('T',' '),product:p.name,type,qty,balance:bal,by:this.state.user.name,note};
     await Store.create('stockmoves',move); this.state.data.stockmoves=await Store.list('stockmoves');
     toast('ບັນທຶກສຳເລັດ','ok'); this.prodRender();
+  },
+  delMove(id){
+    var m=(this.state.data.stockmoves||[]).find(function(x){return x.id===id;}); if(!m)return;
+    if(!confirm('ລຶບລາຍການເຄື່ອນໄຫວນີ້? ລະບົບຈະຄືນຄ່າສະຕັອກໃຫ້ອັດຕະໂນມັດ.')) return;
+    var p=(this.state.data.products||[]).find(function(x){return String(x.name)===String(m.product);});
+    var reversed=false;
+    if(p){ var q=+m.qty||0;
+      if(m.type==='ເຂົ້າ'){ p.stock=(+p.stock)-q; reversed=true; }
+      else if(m.type==='ອອກ'){ p.stock=(+p.stock)+q; reversed=true; }
+      if(reversed) Store.update('products',{id:p.id,stock:p.stock});
+    }
+    Store.remove('stockmoves',id);
+    this.state.data.stockmoves=(this.state.data.stockmoves||[]).filter(function(x){return x.id!==id;});
+    toast('ລຶບລາຍການແລ້ວ'+(reversed?' + ຄືນຄ່າສະຕັອກ':''),'ok'); this.prodRender();
+  },
+  editMove(id){
+    var m=(this.state.data.stockmoves||[]).find(function(x){return x.id===id;}); if(!m)return;
+    modal(`<div class="modal-head"><h3 class="lo">ແກ້ໄຂການເຄື່ອນໄຫວ — ${esc(m.product)}</h3><button class="icon-btn" style="margin-left:auto" onclick="closeModal()">${I.close}</button></div>
+      <div class="modal-body"><div class="form-grid">
+        <div class="fg"><label>ປະເພດ</label><input class="inp" value="${esc(m.type)}" disabled></div>
+        <div class="fg"><label>ຈຳນວນ</label><input class="inp" id="emQty" type="number" value="${(+m.qty||0)}"></div>
+        <div class="fg full"><label>ໝາຍເຫດ</label><input class="inp" id="emNote" value="${esc(m.note)}"></div>
+      </div><p class="lo muted" style="font-size:12px;margin-top:8px">ປ່ຽນຈຳນວນ → ລະບົບຈະປັບສະຕັອກສິນຄ້າຕາມຜົນຕ່າງ.</p></div>
+      <div class="modal-foot"><button class="btn lo" onclick="closeModal()">ຍົກເລີກ</button><button class="btn btn-primary lo" onclick="App.saveMove('${id}')">${I.check} ບັນທຶກ</button></div>`,false,true);
+  },
+  saveMove(id){
+    var m=(this.state.data.stockmoves||[]).find(function(x){return x.id===id;}); if(!m)return;
+    var newQty=+(document.getElementById('emQty').value||0); var newNote=document.getElementById('emNote').value;
+    var delta=newQty-(+m.qty||0);
+    var p=(this.state.data.products||[]).find(function(x){return String(x.name)===String(m.product);});
+    if(p && delta!==0){
+      if(m.type==='ອອກ') p.stock=(+p.stock)-delta; else p.stock=(+p.stock)+delta;
+      Store.update('products',{id:p.id,stock:p.stock}); m.balance=p.stock;
+    }
+    m.qty=newQty; m.note=newNote;
+    Store.update('stockmoves',{id:id,qty:newQty,note:newNote,balance:m.balance});
+    closeModal(); toast('ແກ້ໄຂແລ້ວ','ok'); this.prodRender();
   },
   prodRepStock(outOnly){
     let rows=(this.state.data.products||[]).slice();
@@ -2585,10 +2611,10 @@ const App = {
     const m=this.state.data.stockmoves||[];
     return tableView({ title:'ປະຫວັດການເຄື່ອນໄຫວສະຕັອກ', icon:'trend', count:m.length+' ລາຍການ',
       extra:`<button class="btn lo" onclick="App.exportCSV('stockmoves')">${I.download} Excel</button>`,
-      cols:['ວັນທີ','ສິນຄ້າ','ປະເພດ','ຈຳນວນ','ຄົງເຫຼືອ','ໂດຍ','ໝາຍເຫດ'], rows:m, empty:'ຍັງບໍ່ມີການເຄື່ອນໄຫວ',
+      cols:['ວັນທີ','ສິນຄ້າ','ປະເພດ','ຈຳນວນ','ຄົງເຫຼືອ','ໂດຍ','ໝາຍເຫດ','ຈັດການ'], rows:m, empty:'ຍັງບໍ່ມີການເຄື່ອນໄຫວ',
       render:x=>`<tr><td class="num muted">${esc(x.date)}</td><td class="lo">${esc(x.product)}</td>
         <td><span class="pill ${x.type==='ເຂົ້າ'?'pill-green':x.type==='ອອກ'?'pill-red':'pill-blue'}">${esc(x.type)}</span></td>
-        <td class="num">${fmt(x.qty)}</td><td class="num">${fmt(x.balance)}</td><td class="lo">${esc(x.by)}</td><td class="lo muted">${esc(x.note)||'-'}</td></tr>` });
+        <td class="num">${fmt(x.qty)}</td><td class="num">${fmt(x.balance)}</td><td class="lo">${esc(x.by)}</td><td class="lo muted">${esc(x.note)||'-'}</td><td>${rowActions("App.editMove('"+x.id+"')","App.delMove('"+x.id+"')")}</td></tr>` });
   },
 
   /* ---------- CREDIT MODULE ---------- */
