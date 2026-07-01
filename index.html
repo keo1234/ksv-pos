@@ -399,8 +399,8 @@ window.addEventListener('error',function(e){try{var m=(e&&e.message)||(e&&e.erro
       <div class="brandmark">K</div>
       <div><b>KSV POS</b><span class="lo">ລະບົບຂາຍໜ້າຮ້ານ</span></div>
     </div>
-    <h2 class="lo">ຍິນດີຕ້ອນຮັບກັບມາ</h2>
-    <p class="sub lo">ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອເລີ່ມໃຊ້ງານ</p>
+    <h2 class="lo">ຍິນດີຕ້ອນຮັບ</h2>
+    <p class="sub lo">ເຂົ້າສູ່ລະບົບ KSV POS</p>
     <div class="field"><label class="lo">ຊື່ຜູ້ໃຊ້</label><input id="lg-user" value="" autocomplete="username" placeholder="ຊື່ຜູ້ໃຊ້"></div>
     <div class="field"><label class="lo">ລະຫັດຜ່ານ</label><input id="lg-pass" type="password" value="" autocomplete="current-password" placeholder="ລະຫັດຜ່ານ"></div>
     <label class="lo" style="display:flex;align-items:center;gap:8px;font-size:13px;margin:2px 0 12px;cursor:pointer;color:var(--ink-soft)"><input type="checkbox" id="lg-remember" style="width:16px;height:16px;cursor:pointer"> ຈຳລະຫັດໄວ້ (ເຂົ້າອັດຕະໂນມັດເທື່ອໜ້າ)</label>
@@ -1419,7 +1419,7 @@ const App = {
     this.posRender();
   },
   scanBarcode(){
-    const el=$('#posBarcode'); const code=(el?.value||'').trim(); if(!code)return;
+    const el=$('#posBarcode'); const code=((el||{}).value||'').trim(); if(!code)return;
     const p=(this.state.posProducts||[]).find(x=>String(x.barcode)===code || x.name.toLowerCase()===code.toLowerCase());
     if(p){ this.addToCart(p.id); el.value=''; }
     else toast('ບໍ່ພົບສິນຄ້າລະຫັດ '+code,'err');
@@ -1443,7 +1443,7 @@ const App = {
     this.posCustRender();
   },
   posCustRender(){
-    const q=($('#pcQ')?.value||'').toLowerCase();
+    const q=(($('#pcQ')||{}).value||'').toLowerCase();
     const rows=(this.state.data.customers||[]).filter(c=>!q||[c.code,c.name,c.phone].some(v=>String(v||'').toLowerCase().includes(q)));
     const b=$('#pcBody'); if(!b)return;
     b.innerHTML=rows.length?rows.map(c=>`<tr>
@@ -1481,7 +1481,7 @@ const App = {
     this.posStockRender();
   },
   posStockRender(){
-    const q=($('#psQ')?.value||'').toLowerCase();
+    const q=(($('#psQ')||{}).value||'').toLowerCase();
     const rows=(this.state.posProducts||this.state.data.products||[]).filter(p=>!q||[p.barcode,p.name,p.category].some(v=>String(v||'').toLowerCase().includes(q)));
     const b=$('#psBody'); if(!b)return;
     b.innerHTML=rows.length?rows.map((p,i)=>`<tr>
@@ -1506,7 +1506,7 @@ const App = {
       </div>`,true);
   },
   retLoad(){
-    const run=($('#retRun')?.value||'').trim();
+    const run=(($('#retRun')||{}).value||'').trim();
     const bill=(this.state.data.sales||[]).find(s=>String(s.runno)===run||String(s.runno).includes(run));
     const box=$('#retBox'); if(!box)return;
     if(!bill){ box.innerHTML=`<div class="empty">${I.warn}<div class="lo">ບໍ່ພົບບິນ "${esc(run)}"</div></div>`; return; }
@@ -1525,12 +1525,12 @@ const App = {
   },
   retCalc(){
     const lines=this.state.retLines||[]; let total=0;
-    lines.forEach((l,i)=>{ const q=Math.min(+($('#ret-'+i)?.value||0),l.qty); const t=q*l.price; total+=t; const c=$('#retT-'+i); if(c)c.textContent=fmt(t); });
+    lines.forEach((l,i)=>{ const q=Math.min(+(($('#ret-'+i)||{}).value||0),l.qty); const t=q*l.price; total+=t; const c=$('#retT-'+i); if(c)c.textContent=fmt(t); });
     const el=$('#retTotal'); if(el)el.textContent=fmt(total)+' '+CONFIG.CURRENCY;
   },
   async retDo(){
     const lines=this.state.retLines||[], bill=this.state.retBill;
-    const ret=lines.map((l,i)=>({name:l.name,price:l.price,qty:Math.min(+($('#ret-'+i)?.value||0),l.qty)})).filter(x=>x.qty>0);
+    const ret=lines.map((l,i)=>({name:l.name,price:l.price,qty:Math.min(+(($('#ret-'+i)||{}).value||0),l.qty)})).filter(x=>x.qty>0);
     if(!ret.length){ toast('ກະລຸນາໃສ່ຈຳນວນຄືນ','err'); return; }
     const total=ret.reduce((a,b)=>a+b.qty*b.price,0);
     // ຄືນສະຕັອກ
@@ -1570,8 +1570,8 @@ const App = {
   },
   shiftDiff(expected){ const v=+(document.getElementById('shCount').value||0); const d=v-expected; const el=document.getElementById('shDiff'); if(el){ el.textContent=(d>0?'+':'')+fmt(d); el.style.color=d<0?'var(--danger)':'var(--brand-2)'; } },
   doCloseShift(action){
-    const keep=document.getElementById('shKeepStart')?.checked;
-    const startNext=keep?(+document.getElementById('shStartVal')?.value||0):0;
+    const keep=(document.getElementById('shKeepStart')||{}).checked;
+    const startNext=keep?(+(document.getElementById('shStartVal')||{}).value||0):0;
     localStorage_set('ksv-startcash',startNext);
     this.state.shift={count:0,total:0,cash:0,startCash:startNext,start:Date.now()};
     const sb=$('#shiftBtn'); if(sb) sb.innerHTML=I.logout+' ປິດກະ (0)';
@@ -1580,7 +1580,7 @@ const App = {
     else this.go('dashboard');
   },
   posTxRender(){
-    const q=($('#posTxQ')?.value||'').toLowerCase();
+    const q=(($('#posTxQ')||{}).value||'').toLowerCase();
     const today=new Date().toISOString().slice(0,10);
     let rows=(this.state.data.sales||[]).filter(s=>String(s.date||'').slice(0,10)===today || true); // demo: show all
     rows=rows.filter(s=>!q||[s.runno,s.customer].some(v=>String(v||'').toLowerCase().includes(q)));
@@ -1596,7 +1596,7 @@ const App = {
       <td class="num muted">${esc(s.date)}</td></tr>`).join('');
   },
   posRender(){
-    const q=($('#posSearch')?.value||'').toLowerCase();
+    const q=(($('#posSearch')||{}).value||'').toLowerCase();
     const cat=this.state.cat;
     const list=(this.state.posProducts||[]).filter(p=>{
       const okC = cat==='all'||p.category===cat;
@@ -1951,7 +1951,7 @@ const App = {
   },
   bcPickRefresh(){
     const box=document.getElementById('bcPickList'); if(!box)return;
-    const q=(document.getElementById('bcPickQ')?.value||'').toLowerCase();
+    const q=((document.getElementById('bcPickQ')||{}).value||'').toLowerCase();
     const sel=this.state.bcSelected||[];
     const list=(this.bcAll||[]).filter(p=>!q||String(p.name).toLowerCase().includes(q)||String(p.barcode).includes(q));
     box.innerHTML=list.map(p=>{ const on=sel.includes(p.id); return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:11px">
@@ -2027,10 +2027,10 @@ const App = {
     </div>`;
   },
   purFilter(){
-    const q=(document.getElementById('purQ')?.value||'').toLowerCase();
-    const from=document.getElementById('purFrom')?.value||''; const to=document.getElementById('purTo')?.value||'';
+    const q=((document.getElementById('purQ')||{}).value||'').toLowerCase();
+    const from=(document.getElementById('purFrom')||{}).value||''; const to=(document.getElementById('purTo')||{}).value||'';
     if(from)this.state.purFrom=from; if(to)this.state.purTo=to;
-    const showDel=document.getElementById('purShowDel')?.checked;
+    const showDel=(document.getElementById('purShowDel')||{}).checked;
     let rows=(this.state.data.purchase||[]).filter(p=>{
       const okQ=!q||[p.no,p.vendor,p.ref,p.note].some(v=>String(v||'').toLowerCase().includes(q));
       const d=String(p.date||''); const okD=(!from||d>=from)&&(!to||d<=to);
@@ -2166,8 +2166,8 @@ const App = {
     </div>`;
   },
   prodFilter(){
-    const q=(document.getElementById('prodQ')?.value||'').toLowerCase();
-    const showDel=document.getElementById('prodShowDel')?.checked;
+    const q=((document.getElementById('prodQ')||{}).value||'').toLowerCase();
+    const showDel=(document.getElementById('prodShowDel')||{}).checked;
     let rows=(this.state.data.products||[]).filter(p=>!q||[p.barcode,p.name,p.description,p.category,p.vendor].some(v=>String(v||'').toLowerCase().includes(q)));
     const lim=this.state.prodPage||10; const shown=rows.slice(0,lim);
     const body=document.getElementById('prodBody'); if(!body)return;
@@ -2344,8 +2344,8 @@ const App = {
     toast('ດາວໂຫຼດແບບຟອມຕົວຢ່າງແລ້ວ','ok');
   },
   async doProdImport(){
-    const f=document.getElementById('impFile')?.files[0]; if(!f){toast('ກະລຸນາເລືອກໄຟລ໌ກ່ອນ','err');return;}
-    const forceCat=document.getElementById('impCat')?.value||'';
+    const f=((document.getElementById('impFile')||{}).files||[])[0]; if(!f){toast('ກະລຸນາເລືອກໄຟລ໌ກ່ອນ','err');return;}
+    const forceCat=(document.getElementById('impCat')||{}).value||'';
     const t=await f.text();
     const lines=t.split(/\r?\n/).filter(x=>x.trim()); if(lines.length<2){toast('ໄຟລ໌ວ່າງເປົ່າ ຫຼື ບໍ່ມີຂໍ້ມູນ','err');return;}
     const parse=line=>{ const out=[]; let cur='',q=false; for(let i=0;i<line.length;i++){ const ch=line[i];
@@ -2439,11 +2439,11 @@ const App = {
   /* ---------- CREDIT MODULE ---------- */
   _daysBetween(d){ try{ return Math.max(0,Math.round((Date.now()-new Date(String(d).slice(0,10)).getTime())/86400000)); }catch(e){ return 0; } },
   crFilter(){
-    const q=(document.getElementById('crQ')?.value||'').toLowerCase();
-    const from=document.getElementById('crFrom')?.value||''; const to=document.getElementById('crTo')?.value||'';
+    const q=((document.getElementById('crQ')||{}).value||'').toLowerCase();
+    const from=(document.getElementById('crFrom')||{}).value||''; const to=(document.getElementById('crTo')||{}).value||'';
     if(from)this.state.crFrom=from; if(to)this.state.crTo=to;
-    const type=document.getElementById('crFilterType')?.value||'credit';
-    const showDel=document.getElementById('crShowDel')?.checked;
+    const type=(document.getElementById('crFilterType')||{}).value||'credit';
+    const showDel=(document.getElementById('crShowDel')||{}).checked;
     let rows=(this.state.data.sales||[]).filter(s=>{
       const out=(+s.total)-(+s.paid);
       const okT = type==='all'? true : type==='paid'? out<=0 : out>0;
@@ -2593,9 +2593,9 @@ const App = {
     </div>`;
   },
   cusFilter(){
-    const q=(document.getElementById('cusQ')?.value||'').toLowerCase();
-    const mon=document.getElementById('cusMonth')?.value||'';
-    const showDel=document.getElementById('cusShowDel')?.checked;
+    const q=((document.getElementById('cusQ')||{}).value||'').toLowerCase();
+    const mon=(document.getElementById('cusMonth')||{}).value||'';
+    const showDel=(document.getElementById('cusShowDel')||{}).checked;
     let rows=(this.state.data.customers||[]).filter(p=>{
       const okQ=!q||[p.name,p.phone,p.address,p.email,p.code].some(v=>String(v||'').toLowerCase().includes(q));
       const okM=!mon||String(p.birthday||'').slice(3,5)===mon;
@@ -3154,7 +3154,7 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='Escape'){ closeModal(); }
 });
 /* ຈຳລະຫັດ: ຖ້າເຄີຍຕິກໄວ້ ໃຫ້ເຂົ້າສູ່ລະບົບອັດຕະໂນມັດ */
-(function(){ try{ App.applyLogo(App.logo); }catch(e){} })();
+(function(){ try{ App.applyLogo(App.logo); if(Store.online()) App.loadShopSettings(); }catch(e){} })();
 (function(){ try{ const r=localStorage_get('ksv-remember',''); if(!r) return; const c=JSON.parse(r);
   const u=document.getElementById('lg-user'), pw=document.getElementById('lg-pass'), cb=document.getElementById('lg-remember');
   if(u)u.value=c.u||''; if(pw)pw.value=c.p||''; if(cb)cb.checked=true; App.login();
