@@ -1796,6 +1796,7 @@ const App = {
   async confirmPay(multi){
     const paid=+(this.state.payInput||0);
     const credit=(this.state.payType==='ເຄຣດິດ'||this.state.payType==='ຄ້າງຈ່າຍ');
+    const paidFinal=(this.state.payType==='ຄ້າງຈ່າຍ')?0:paid;
     if(!credit && paid<this.state.payTotal){ toast('ຈຳນວນເງິນບໍ່ພຽງພໍ','err'); return; }
     const cart=this.state.cart;
     // ກວດສະຕັອກອີກຄັ້ງ (ນັບເປັນຍ່ອຍ) — ບລັອກຖ້າບໍ່ພໍຂາຍ
@@ -1814,9 +1815,10 @@ const App = {
       cashier:this.state.user.name, customer:this.state.posCust||'', branch:CONFIG.STORE_NAME,
       items:cart.reduce((a,b)=>a+b.qty,0), subtotal:this.cartSub(), discount:this.state.discount||0,
       beforeVat:this.cartBeforeVat(), vat:this.cartVat(), vatRate:this.state.vatOn?(+(this.state.vatRate)||0):0,
-      total:this.state.payTotal, paid:paid, paytype:multi?'ຫຼາຍຊ່ອງທາງ':(this.state.payType||'ເງິນສົດ'),
+      total:this.state.payTotal, paid:paidFinal, paytype:multi?'ຫຼາຍຊ່ອງທາງ':(this.state.payType||'ເງິນສົດ'),
       note:this.state.payNote||'', lines:JSON.stringify(lines), currency:this.state.billCurrency||CONFIG.CURRENCY,
-      status:credit&&paid<this.state.payTotal?'ຄ້າງຊຳລະ':'ສຳເລັດ'
+      billno:this._nextBillNo(),
+      status:credit&&paidFinal<this.state.payTotal?'ຄ້າງຊຳລະ':'ສຳເລັດ'
     };
     // ບັນທຶກແບບໄວ: ສະແດງຜົນທັນທີ ແລ້ວສົ່ງຂຶ້ນ Sheet ໃນພື້ນຫຼັງ (ບໍ່ໃຫ້ລໍ)
     this.state.data.sales=this.state.data.sales||[]; this.state.data.sales.unshift(bill);
@@ -1860,8 +1862,12 @@ const App = {
     const total=+b.total||0; const vat=+b.vat||0; const beforeVAT=(b.beforeVat!=null&&b.beforeVat!=='')?+b.beforeVat:(total-vat); const vrate=+b.vatRate||0;
     const _qrs=(App.qr||[]).filter(q=>q&&q.img); const qrHtml=this._qrBlock(size);
     const head=`<div class="center">${App.logo?`<img class="logo" src="${esc(App.logo)}">`:''}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
-      ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div>Runno: ${esc(b.runno)}</div><div class="bold">ໃບຮັບເງິນ</div></div>`;
+      ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div>ເລກທີ: ${esc(b.billno||b.runno)}</div><div class="bold">ໃບຮັບເງິນ</div></div>`;
     const meta=`<div style="display:flex;justify-content:space-between;font-size:12px;margin:6px 0"><div>ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}</div><div>ວັນທີ: ${esc(b.date)}</div></div><div style="font-size:12px;margin-bottom:6px">ພະນັກງານ: ${esc(b.cashier)}</div>`;
+    const _isOwe=(b.status==='ຄ້າງຊຳລະ')||(((+b.total)||0)-((+b.paid)||0)>0);
+    const _payLabel=_isOwe?'ຄ້າງຈ່າຍ':((b.paytype==='ເງິນສົດ')?'ຈ່າຍສົດ':'ຈ່າຍແລ້ວ');
+    const _payC=_isOwe?'#e11d48':'#16a34a'; const _payBg=_isOwe?'#fef2f2':'#f0fdf4';
+    const statusBox=`<div style="margin-top:10px;border:2px solid ${_payC};background:${_payBg};border-radius:10px;padding:8px 12px;text-align:center;color:${_payC};font-weight:800;font-size:13px">ສະຖານະ: ${_payLabel}${_isOwe?' — ຄ້າງ '+fmt(((+b.total)||0)-((+b.paid)||0))+' '+cur:''} · ${esc(String(b.date||'').slice(0,16))}</div>`;
     if(size==='slip'){
       const rows=lines.map(l=>`<tr><td colspan="3" style="padding-top:4px">${esc(l.name)}</td></tr>
         <tr><td>${l.qty} x ${fmt(l.price)}</td><td></td><td class="right">${fmt(l.total)}</td></tr>`).join('');
@@ -1872,7 +1878,7 @@ const App = {
         <tr class="bold"><td>ລວມທັງໝົດ</td><td class="right">${fmt(total)} ${cur}</td></tr>
         <tr><td>ຮັບເງິນ</td><td class="right">${fmt(b.paid)}</td></tr>
         <tr><td>ເງິນທອນ</td><td class="right">${fmt(Math.max(0,(+b.paid)-total))}</td></tr></table>
-        <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div>${qrHtml}</div>`;
+        <hr><div class="center" style="font-size:11px">ຂອບໃຈທີ່ໃຊ້ບໍລິການ<br>** ${esc(kipWords(total))} **</div>${statusBox}${qrHtml}</div>`;
     } else {
       const rows=lines.map((l,i)=>`<tr><td class="center">${i+1}</td><td>${esc(l.name)}</td><td class="center">${l.qty}</td><td class="center">${esc(l.unit)}</td><td class="right">${fmt(l.price)}</td><td class="right">${fmt(l.disc)}</td><td class="right">${fmt(l.total)}</td></tr>`).join('');
       var html=`<div class="rc ${size}">
@@ -1884,7 +1890,7 @@ const App = {
         <div class="center bold" style="font-size:22px;margin-bottom:8px">ໃບຮັບເງິນ</div>
         <table style="margin-bottom:8px"><tr>
           <td style="border:1px solid #000;padding:8px;width:60%">ຊື່ລູກຄ້າ: ${esc(b.customer)||'ທົ່ວໄປ'}<br>ທີ່ຢູ່: ......<br>ເບີໂທ: ......</td>
-          <td style="border:1px solid #000;padding:8px">ເລກທີ: ${esc(b.runno)}<br>ວັນທີ: ${esc(b.date)}<br>ພະນັກງານ: ${esc(b.cashier)}</td></tr></table>
+          <td style="border:1px solid #000;padding:8px">ເລກທີ: ${esc(b.billno||b.runno)}<br>ວັນທີ: ${esc(b.date)}<br>ພະນັກງານ: ${esc(b.cashier)}</td></tr></table>
         <table class="items"><thead><tr class="bold"><th>ລຳດັບ</th><th>ລາຍການສິນຄ້າ</th><th>ຈຳນວນ</th><th>ຫົວໜ່ວຍ</th><th>ລາຄາຂາຍ</th><th>ສ່ວນຫຼຸດ</th><th>ຈຳນວນເງິນ</th></tr></thead>
           <tbody>${rows}</tbody></table>
         <table style="margin-top:8px"><tr><td style="width:55%;border:1px solid #000;padding:10px;vertical-align:bottom">( ${esc(kipWords(total))} )</td>
@@ -1897,7 +1903,7 @@ const App = {
         <table style="margin-top:26px;text-align:center"><tr>
           <td>......................<br>ຜູ້ສັ່ງສິນຄ້າ</td><td>......................<br>ຜູ້ຮັບສິນຄ້າ</td><td>......................<br>ຜູ້ອະນຸມັດ</td></tr></table>
         <div style="font-size:11px;margin-top:10px">ສິນຄ້າທີ່ຊື້ແລ້ວ ສາມາດປ່ຽນ-ຄືນພາຍໃນ 3 ວັນ ພ້ອມໃບບິນ. ຮັບປະກັນຕາມເງື່ອນໄຂຮ້ານ.</div>
-        ${qrHtml}
+        ${statusBox}${qrHtml}
       </div>`;
     }
     return html;
@@ -2910,10 +2916,10 @@ const App = {
   _imgResize(file,cb){ var r=new FileReader(); r.onload=function(e){ var img=new Image(); img.onload=function(){ var max=320; var w=img.width,h=img.height; if(w>h&&w>max){h=Math.round(h*max/w);w=max;}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max;} var cv=document.createElement('canvas'); cv.width=w;cv.height=h; try{ cv.getContext('2d').drawImage(img,0,0,w,h); cb(cv.toDataURL('image/jpeg',0.5)); }catch(_){ cb(e.target.result); } }; img.onerror=function(){ cb(e.target.result); }; img.src=e.target.result; }; r.readAsDataURL(file); },
   _imgToField(input,k){ var fl=input.files&&input.files[0]; if(!fl)return; App._imgResize(fl,function(b64){ var hd=document.querySelector('#formModal [data-k="'+k+'"]'); if(hd)hd.value=b64; var p=document.getElementById('imgprev_'+k); if(p){p.style.backgroundImage='url('+b64+')';p.textContent='';} toast('ໂຫຼດຮູບແລ້ວ','ok'); }); },
   _imgClear(k){ var hd=document.querySelector('#formModal [data-k="'+k+'"]'); if(hd)hd.value=''; var p=document.getElementById('imgprev_'+k); if(p){p.style.backgroundImage='';p.textContent='ບໍ່ມີຮູບ';} },
+  _nextBillNo(){ var seq=(+localStorage_get('ksv-billseq','0'))||0; seq++; localStorage_set('ksv-billseq',String(seq)); return 'KSV'+String(seq).padStart(4,'0'); },
   _ensurePrintNo(table,r){
     if(r.printno) return;
-    var seq=(+localStorage_get('ksv-printseq','0'))||0; seq++; localStorage_set('ksv-printseq',String(seq));
-    r.printno='KSV'+String(seq).padStart(5,'0');
+    r.printno=this._nextBillNo();
     r.printdate=new Date().toISOString().slice(0,10);
     try{ Store.update(table,{id:r.id,printno:r.printno,printdate:r.printdate}); }catch(e){}
   },
@@ -2937,6 +2943,9 @@ const App = {
     const qrHtml=this._qrBlock(size);
     const shopLines=`${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div style="font-size:12px">ໂທ: ${esc(App.shop.phone)}</div>`:''}${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}`;
     let html;
+    const _stDone=(r.status==='ສຳເລັດ'||r.status==='ຮັບແລ້ວ'||r.status==='ຈ່າຍແລ້ວ');
+    const _stC=_stDone?'#16a34a':'#f59e0b'; const _stBg=_stDone?'#f0fdf4':'#fffbeb';
+    const statusBox=`<div style="margin-top:10px;border:2px solid ${_stC};background:${_stBg};border-radius:10px;padding:8px 12px;text-align:center;color:${_stC};font-weight:800;font-size:13px">ສະຖານະ: ${esc(r.status)||'ຮັບເຄື່ອງ'} · ${fmtDate(r.printdate)||fmtDate(r.recorded)||''}</div>`;
     if(size!=='slip'){
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
       html=`<div class="rc ${size}">
@@ -2954,14 +2963,14 @@ const App = {
         <table style="margin-bottom:8px"><tr><td class="right bold" style="border:1px solid #000;padding:10px;font-size:15px">ປະເມີນຄ່າສ້ອມ: ${fmt(r.cost)} ${esc(r.currency||CONFIG.CURRENCY)}</td></tr></table>
         <table style="margin-top:16px;text-align:center"><tr><td>......................<br>ຜູ້ຮັບເຄື່ອງ</td><td>......................<br>ລູກຄ້າ</td></tr></table>
         <div class="center" style="font-size:12px;margin-top:10px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ · ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ **</div>
-        ${qrHtml}
+        ${statusBox}${qrHtml}
       </div>`;
     } else {
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:54px;height:54px;object-fit:contain;border-radius:8px">`:'';
       html=`<div class="rc slip">
         <div class="center">${logo}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
           ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div class="bold" style="margin-top:4px">ໃບຮັບສ້ອມແປງ</div>
-          <div class="bold" style="font-size:15px">${esc(r.runno||r.id)}</div></div>
+          <div class="bold" style="font-size:15px">${esc(r.printno||r.runno||r.id)}</div></div>
         <hr>
         <table>
           <tr><td>ລູກຄ້າ</td><td class="right">${esc(r.name)||'-'}</td></tr>
@@ -2983,7 +2992,7 @@ const App = {
         </table>
         <hr>
         <div class="center" style="font-size:11px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ **<br>ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ · ຂອບໃຈທີ່ໃຊ້ບໍລິການ</div>
-        ${qrHtml}
+        ${statusBox}${qrHtml}
       </div>`;
     }
     return html;
@@ -3034,6 +3043,9 @@ const App = {
     const qrHtml=this._qrBlock(size);
     const shopLines=`${App.shop.addr?`<div style="font-size:12px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div style="font-size:12px">ໂທ: ${esc(App.shop.phone)}</div>`:''}${App.shop.email?`<div style="font-size:12px">Email: ${esc(App.shop.email)}</div>`:''}`;
     let html;
+    const _stDone=(r.status==='ສຳເລັດ'||r.status==='ຮັບແລ້ວ'||r.status==='ຈ່າຍແລ້ວ');
+    const _stC=_stDone?'#16a34a':'#f59e0b'; const _stBg=_stDone?'#f0fdf4':'#fffbeb';
+    const statusBox=`<div style="margin-top:10px;border:2px solid ${_stC};background:${_stBg};border-radius:10px;padding:8px 12px;text-align:center;color:${_stC};font-weight:800;font-size:13px">ສະຖານະ: ${esc(r.status)||'ຮັບເຄື່ອງ'} · ${fmtDate(r.printdate)||fmtDate(r.recorded)||''}</div>`;
     if(size!=='slip'){
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
       html=`<div class="rc ${size}">
@@ -3051,14 +3063,14 @@ const App = {
         <table style="margin-bottom:8px"><tr><td class="right bold" style="border:1px solid #000;padding:10px;font-size:15px">ລາຄາ: ${fmt(r.price)} ${esc(r.currency||CONFIG.CURRENCY)}</td></tr></table>
         <table style="margin-top:16px;text-align:center"><tr><td>......................<br>ຜູ້ຮັບອໍເດີ</td><td>......................<br>ລູກຄ້າ</td></tr></table>
         <div class="center" style="font-size:12px;margin-top:10px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ · ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ **</div>
-        ${qrHtml}
+        ${statusBox}${qrHtml}
       </div>`;
     } else {
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:54px;height:54px;object-fit:contain;border-radius:8px">`:'';
       html=`<div class="rc slip">
         <div class="center">${logo}<div class="bold" style="font-size:16px">${esc(CONFIG.STORE_NAME)}</div>
           ${App.shop.addr?`<div style="font-size:11px">${esc(App.shop.addr)}</div>`:''}${App.shop.phone?`<div>ໂທ: ${esc(App.shop.phone)}</div>`:''}<div class="bold" style="margin-top:4px">ໃບຮັບສິ່ງພິມ</div>
-          <div class="bold" style="font-size:15px">${esc(r.runno||r.id)}</div></div>
+          <div class="bold" style="font-size:15px">${esc(r.printno||r.runno||r.id)}</div></div>
         <hr>
         <table>
           <tr><td>ລູກຄ້າ</td><td class="right">${esc(r.name)||'-'}</td></tr>
@@ -3078,7 +3090,7 @@ const App = {
         </table>
         <hr>
         <div class="center" style="font-size:11px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ **<br>ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ · ຂອບໃຈທີ່ໃຊ້ບໍລິການ</div>
-        ${qrHtml}
+        ${statusBox}${qrHtml}
       </div>`;
     }
     return html;
