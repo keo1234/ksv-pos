@@ -2535,6 +2535,7 @@ const App = {
           <div class="fg full"><label>ເລືອກສິນຄ້າ</label><select class="inp lo" id="soProd">${prods.map(p=>`<option value="${p.id}">${esc(p.name)} — ສະຕັອກ ${fmt(p.stock)}</option>`).join('')}</select></div>
           <div class="fg"><label>${kind==='stockcount'?'ຈຳນວນທີ່ນັບໄດ້':'ຈຳນວນ'}</label><input class="inp" id="soQty" type="number" value="${kind==='stockcount'?'':'1'}"></div>
           <div class="fg"><label>ໝາຍເຫດ</label><input class="inp" id="soNote" placeholder="ໝາຍເຫດ"></div>
+          ${kind==='stockout'?`<div class="fg full"><label class="chk" style="color:var(--danger);font-weight:600"><input type="checkbox" id="soRemove"> ລຶບສິນຄ້ານີ້ອອກຈາກລະບົບທັງໝົດ (ນຳອອກໝົດ — ກູ້ຄືນບໍ່ໄດ້)</label></div>`:''}
         </div>
         <button class="btn btn-primary lo" style="margin-top:14px" onclick="App.stockOpDo('${kind}')">${I.check} ${kind==='stockin'?'ນຳເຂົ້າ':kind==='stockout'?'ນຳອອກ':'ບັນທຶກການນັບ'}</button>
       </div>
@@ -2549,6 +2550,16 @@ const App = {
     const pid=document.getElementById('soProd').value; const qty=+(document.getElementById('soQty').value||0);
     const note=document.getElementById('soNote').value;
     const p=(this.state.data.products||[]).find(x=>x.id===pid); if(!p){toast('ເລືອກສິນຄ້າກ່ອນ','err');return;}
+    const rmEl=document.getElementById('soRemove'); const removeAll=(kind==='stockout' && rmEl && rmEl.checked);
+    if(removeAll){
+      if(!confirm('ຢືນຢັນ: ລຶບສິນຄ້າ "'+p.name+'" ອອກຈາກລະບົບທັງໝົດ? ກູ້ຄືນບໍ່ໄດ້.')) return;
+      const mv={date:new Date().toISOString().slice(0,16).replace('T',' '),product:p.name,type:'ອອກ (ລຶບ)',qty:(+p.stock||0),balance:0,by:this.state.user.name,note:note||'ລຶບສິນຄ້າອອກຈາກລະບົບ'};
+      await Store.create('stockmoves',mv);
+      await Store.remove('products',pid);
+      this.state.data.products=(this.state.data.products||[]).filter(x=>x.id!==pid);
+      this.state.data.stockmoves=await Store.list('stockmoves');
+      toast('ລຶບສິນຄ້າ "'+p.name+'" ອອກຈາກລະບົບແລ້ວ','ok'); this.prodRender(); return;
+    }
     let type,bal;
     if(kind==='stockin'){ p.stock=(+p.stock)+qty; type='ເຂົ້າ'; bal=p.stock; }
     else if(kind==='stockout'){ if(qty>+p.stock){toast('ສະຕັອກບໍ່ພຽງພໍ','err');return;} p.stock=(+p.stock)-qty; type='ອອກ'; bal=p.stock; }
