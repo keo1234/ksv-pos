@@ -34,7 +34,7 @@ var SCHEMA = {
   cusgroups: ["id","name","discount","note"],
   cuslevels: ["id","name","min","note"],
   contacts:  ["id","date","customer","channel","reason","note","status"],
-  sales:     ["id","runno","billno","date","cashier","customer","items","subtotal","discount","total","paid","paytype","branch","note","lines","status","currency"],
+  sales:     ["id","runno","billno","date","cashier","customer","items","subtotal","discount","total","paid","paytype","branch","note","lines","status","currency","fxRate","priceCur","priceTotal"],
   users:     ["id","name","role","branch","username","password","perms"],
   employees: ["id","name","position","phone","salary"],
   purchase:  ["id","no","ref","vendor","items","total","tax","note","date","recorded","imported"],

@@ -1672,6 +1672,8 @@ const App = {
   cartBeforeVat(){ const sub=this.cartSub(); const raw=+(this.state.discountRaw||0); const d=this.state.discType==='%'?Math.round(sub*raw/100):raw; this.state.discount=d; return Math.max(0,sub-d); },
   cartVat(){ const r=+(this.state.vatRate==null?10:this.state.vatRate); return this.state.vatOn?Math.round(this.cartBeforeVat()*r/100):0; },
   cartTotal(){ return this.cartBeforeVat()+this.cartVat(); },
+  payableTotal(){ var grand=this.cartTotal(); var cur=this.state.billCurrency||CONFIG.CURRENCY; var fx=+(this.state.fxRate||0); return (cur==='ບາດ'&&fx>0)?Math.round(grand*fx):grand; },
+  setFx(v){ this.state.fxRate=String(v).replace(/[^0-9.]/g,''); var grand=this.cartTotal(); var fx=+(this.state.fxRate||0); var payable=fx>0?Math.round(grand*fx):grand; var k=$('#ctKip'); if(k) k.textContent=fx>0?fmt(payable)+' ກີບ':'—'; },
   cartRender(){
     const cart=this.state.cart;
     const cc=$('#cartCount'); if(cc) cc.textContent=cart.length?cart.length+' ລາຍການ':'';
@@ -1698,6 +1700,7 @@ const App = {
     this.state.discount=discMoney;
     const vatRate=+(this.state.vatRate==null?10:this.state.vatRate); const vatOn=!!this.state.vatOn;
     const vatAmt=vatOn?Math.round(total*vatRate/100):0; const grand=total+vatAmt;
+    const _cur=this.state.billCurrency||CONFIG.CURRENCY; const _fx=+(this.state.fxRate||0); const _isBaht=_cur==='ບາດ'; const _payable=(_isBaht&&_fx>0)?Math.round(grand*_fx):grand;
     const foot=$('#cartFoot'); if(!foot)return;
     foot.innerHTML=`
       <button class="btn lo" style="width:100%;background:linear-gradient(135deg,var(--gold),#eec069);color:#fff;border:none;margin-bottom:10px;justify-content:center" onclick="App.depositPromo()">${I.money} ເພີ່ມເງິນມັດຈຳ / ໂປຣໂມຊັນ</button>
@@ -1709,8 +1712,10 @@ const App = {
           <div class="seg"><button class="${this.state.discType==='ເງິນ'?'active':''}" onclick="App.setDiscType('ເງິນ')">ເງິນ</button><button class="${this.state.discType==='%'?'active':''}" onclick="App.setDiscType('%')">%</button></div>
         </span>
       </div>
+      ${_isBaht?`<div class="sumrow" style="align-items:center"><span>ອັດຕາແລກປ່ຽນ (1 ບາດ =)</span><span style="display:flex;gap:6px;align-items:center"><input class="inp" id="fxInp" value="${this.state.fxRate||''}" placeholder="0" style="width:90px;text-align:right;padding:6px 8px" oninput="App.setFx(this.value)"><span class="muted">ກີບ</span></span></div>`:''}
       <div class="sumrow" style="align-items:center"><span style="display:flex;align-items:center;gap:6px"><label class="chk" style="margin:0"><input type="checkbox" ${vatOn?'checked':''} onchange="App.toggleVat(this.checked)"> ຄິດ VAT</label><input class="inp" value="${vatRate}" style="width:52px;text-align:right;padding:5px 7px" ${vatOn?'':'disabled'} onchange="App.setVatRate(this.value)"><span class="muted">%</span></span><span class="v" id="ctVat">${vatOn?fmt(vatAmt):'-'}</span></div>
       <div class="sumrow sum-total"><span>ລວມທັງໝົດ</span><span class="v" id="ctTotal">${fmt(grand)} ${this.state.billCurrency||CONFIG.CURRENCY}</span></div>
+      ${_isBaht?`<div class="sumrow sum-total" style="color:var(--brand-2)"><span>ລວມເປັນກີບ</span><span class="v" id="ctKip">${_fx>0?fmt(_payable)+' ກີບ':'—'}</span></div>`:''}
       <div class="sumrow" style="align-items:center;margin-top:8px"><span>ເລືອກວັນທີຂາຍ</span><input type="date" class="inp" value="${this.state.saleDate}" style="padding:6px 8px;width:auto" onchange="App.state.saleDate=this.value"></div>
       <button class="pay-btn" ${cart.length?'':'disabled'} onclick="App.checkout()">ຮັບເງິນ (SpaceBar)</button>`;
   },
@@ -1748,7 +1753,7 @@ const App = {
   },
   checkout(){
     const cart=this.state.cart; if(!cart.length)return;
-    const total=this.cartTotal();
+    const total=this.payableTotal();
     this.state.payTotal=total; this.state.payInput=''; this.state.payNote='';
     this.state.payType=this.state.payType||'ເງິນສົດ';
     modal(`
@@ -1811,6 +1816,7 @@ const App = {
     const paid=+(this.state.payInput||0);
     const credit=(this.state.payType==='ເຄຣດິດ'||this.state.payType==='ຄ້າງຈ່າຍ');
     const paidFinal=(this.state.payType==='ຄ້າງຈ່າຍ')?0:paid;
+    const _bcur=this.state.billCurrency||CONFIG.CURRENCY; const _bfx=+(this.state.fxRate||0); const _conv=(_bcur==='ບາດ'&&_bfx>0);
     if(!credit && paid<this.state.payTotal){ toast('ຈຳນວນເງິນບໍ່ພຽງພໍ','err'); return; }
     const cart=this.state.cart;
     // ກວດສະຕັອກອີກຄັ້ງ (ນັບເປັນຍ່ອຍ) — ບລັອກຖ້າບໍ່ພໍຂາຍ
@@ -1830,7 +1836,7 @@ const App = {
       items:cart.reduce((a,b)=>a+b.qty,0), subtotal:this.cartSub(), discount:this.state.discount||0,
       beforeVat:this.cartBeforeVat(), vat:this.cartVat(), vatRate:this.state.vatOn?(+(this.state.vatRate)||0):0,
       total:this.state.payTotal, paid:paidFinal, paytype:multi?'ຫຼາຍຊ່ອງທາງ':(this.state.payType||'ເງິນສົດ'),
-      note:this.state.payNote||'', lines:JSON.stringify(lines), currency:this.state.billCurrency||CONFIG.CURRENCY,
+      note:this.state.payNote||'', lines:JSON.stringify(lines), currency:_conv?'ກີບ':_bcur, fxRate:_conv?_bfx:0, priceCur:_conv?'ບາດ':'', priceTotal:_conv?this.cartTotal():0,
       billno:this._nextBillNo(),
       status:credit&&paidFinal<this.state.payTotal?'ຄ້າງຊຳລະ':'ສຳເລັດ'
     };
@@ -1840,7 +1846,7 @@ const App = {
     for(const pid of ids){ this.deductStock(pid, this.cartBaseQty(pid)); }
     this.state.lastBill=Object.assign({},bill);
     if(this.state.shift){ this.state.shift.count++; this.state.shift.total+=(+bill.total||0); if(bill.paytype==='ເງິນສົດ') this.state.shift.cash+=(+bill.total||0); const sb=$('#shiftBtn'); if(sb) sb.innerHTML=I.logout+' ປິດກະ ('+this.state.shift.count+')'; }
-    this.state.cart=[]; this.state.discount=0; this.state.discountRaw=''; this.state.billCurrency=CONFIG.CURRENCY; this.cartRender(); this.posRender(); this.posTxRender();
+    this.state.cart=[]; this.state.discount=0; this.state.discountRaw=''; this.state.billCurrency=CONFIG.CURRENCY; this.state.fxRate=''; this.cartRender(); this.posRender(); this.posTxRender();
     this.showChange(this.state.lastBill);
   },
   // ຕັດສະຕັອກ (ນັບເປັນຍ່ອຍ). ບໍ່ໃຫ້ຕິດລົບ.
@@ -1871,7 +1877,7 @@ const App = {
   },
   _saleReceiptHtml(size){
     const b=this.state.lastBill; if(!b) return '';
-    const cur=b.currency||CONFIG.CURRENCY;
+    const cur=b.currency||CONFIG.CURRENCY; const fxR=+(b.fxRate||0); const ptot=+b.priceTotal||0;
     let lines=[]; try{ lines=typeof b.lines==='string'?JSON.parse(b.lines||'[]'):(b.lines||[]); }catch(e){ lines=[]; }
     const total=+b.total||0; const vat=+b.vat||0; const beforeVAT=(b.beforeVat!=null&&b.beforeVat!=='')?+b.beforeVat:(total-vat); const vrate=+b.vatRate||0;
     const _qrs=(App.qr||[]).filter(q=>q&&q.img); const qrHtml=this._qrBlock(size);
@@ -1889,6 +1895,7 @@ const App = {
         <table>${rows}</table><hr>
         <table><tr><td>ລວມ</td><td class="right">${fmt(b.subtotal)}</td></tr>
         <tr><td>ສ່ວນຫຼຸດ</td><td class="right">-${fmt(b.discount)}</td></tr>
+        ${fxR>0?`<tr><td>ລວມ (ບາດ)</td><td class="right">${fmt(ptot)} ບາດ</td></tr><tr><td>ອັດຕາ 1 ບາດ</td><td class="right">${fmt(fxR)} ກີບ</td></tr>`:''}
         <tr class="bold"><td>ລວມທັງໝົດ</td><td class="right">${fmt(total)} ${cur}</td></tr>
         <tr><td>ຮັບເງິນ</td><td class="right">${fmt(b.paid)}</td></tr>
         <tr><td>ເງິນທອນ</td><td class="right">${fmt(Math.max(0,(+b.paid)-total))}</td></tr></table>
@@ -1913,6 +1920,7 @@ const App = {
             <tr><td style="padding:4px 8px">ສ່ວນຫຼຸດທ້າຍບິນ</td><td class="right" style="padding:4px 8px">-${fmt(b.discount)}</td></tr>
             ${vat>0?`<tr><td style="padding:4px 8px">ຍອດກ່ອນພາສີ</td><td class="right" style="padding:4px 8px">${fmt(beforeVAT)}</td></tr>
             <tr><td style="padding:4px 8px">ພາສີ VAT ${vrate}%</td><td class="right" style="padding:4px 8px">${fmt(vat)}</td></tr>`:''}
+            ${fxR>0?`<tr><td style="padding:4px 8px">ລວມ (ບາດ)</td><td class="right" style="padding:4px 8px">${fmt(ptot)} ບາດ</td></tr><tr><td style="padding:4px 8px">ອັດຕາ 1 ບາດ</td><td class="right" style="padding:4px 8px">${fmt(fxR)} ກີບ</td></tr>`:''}
             <tr class="bold"><td style="padding:4px 8px">ລວມທັງໝົດ</td><td class="right" style="padding:4px 8px">${fmt(total)} ${cur}</td></tr></table></td></tr></table>
         <table style="margin-top:26px;text-align:center"><tr>
           <td>......................<br>ຜູ້ສັ່ງສິນຄ້າ</td><td>......................<br>ຜູ້ຮັບສິນຄ້າ</td><td>......................<br>ຜູ້ອະນຸມັດ</td></tr></table>
