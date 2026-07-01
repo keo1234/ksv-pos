@@ -1125,28 +1125,24 @@ const App = {
 
     async reports(c){
       const data = await Store.list('sales'); App.state.data.sales=data;
-      const total=data.reduce((a,b)=>a+(+b.total||0),0);
-      const profit=Math.round(total*0.12);
+      App.state.repFrom=App.state.repFrom||new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().slice(0,10);
+      App.state.repTo=App.state.repTo||new Date().toISOString().slice(0,10);
+      App.state.repGroup=App.state.repGroup||'day';
       c.innerHTML=`
-      <div class="stat-row">
-        <div class="stat-card"><div class="s-top"><span class="s-lbl">ຍອດຂາຍລວມ</span><div class="s-ico" style="background:var(--brand-soft);color:var(--brand-2)">${I.money}</div></div><div class="s-val">${fmt(total)} <small>${CONFIG.CURRENCY}</small></div></div>
-        <div class="stat-card"><div class="s-top"><span class="s-lbl">ຈຳນວນບິນ</span><div class="s-ico" style="background:#e7f0fe;color:#1f63d6">${I.receipt}</div></div><div class="s-val">${data.length}</div></div>
-        <div class="stat-card"><div class="s-top"><span class="s-lbl">ກຳໄລໂດຍປະມານ</span><div class="s-ico" style="background:#fdf1dc;color:#a9781a">${I.trend}</div></div><div class="s-val">${fmt(profit)} <small>${CONFIG.CURRENCY}</small></div></div>
-      </div>
-      ${tableView({
-        title:'ລາຍງານການຂາຍທັງໝົດ', icon:'report', count:data.length+' ບິນ',
-        extra:`<button class="btn" onclick="App.exportCSV('sales')">${I.download}<span>Excel/CSV</span></button>`,
-        cols:['Runno','ວັນທີ','ພະນັກງານ','ລູກຄ້າ','ລາຍການ','ສ່ວນຫຼຸດ','ຍອດລວມ','ການຊຳລະ','ສະຖານະ'],
-        rows:data, search:'sales',
-        render:s=>`<tr>
-          <td class="num" style="font-weight:700">${esc(s.runno)}</td>
-          <td class="num muted">${esc(s.date)}</td>
-          <td class="lo">${esc(s.cashier)}</td><td class="lo">${esc(s.customer)}</td>
-          <td class="num">${fmt(s.items)}</td><td class="num muted">${fmt(s.discount)}</td>
-          <td class="num" style="font-weight:700">${fmt(s.total)}</td>
-          <td><span class="pill pill-blue">${esc(s.paytype)}</span></td>
-          <td><span class="pill pill-green">${esc(s.status)}</span></td></tr>`
-      })}`;
+      <div class="card"><div class="card-head" style="gap:9px;flex-wrap:wrap">
+        <h3>${I.report}<span class="lo">ລາຍງານການຂາຍ</span></h3>
+        <div class="card-tools" style="flex-wrap:wrap;gap:8px">
+          <div class="date-range">${I.cal}<input type="date" id="repFrom" value="${App.state.repFrom}"><span>—</span><input type="date" id="repTo" value="${App.state.repTo}"></div>
+          <select class="inp lo" id="repGroup" onchange="App.repFilter()"><option value="day"${App.state.repGroup==='day'?' selected':''}>ສະຫຼຸບຕາມວັນ</option><option value="month"${App.state.repGroup==='month'?' selected':''}>ສະຫຼຸບຕາມເດືອນ</option><option value="year"${App.state.repGroup==='year'?' selected':''}>ສະຫຼຸບຕາມປີ</option></select>
+          <button class="btn btn-primary lo" onclick="App.repFilter()">${I.search} ສະຫຼຸບ</button>
+          <button class="btn lo" onclick="App.exportCSV('sales')">${I.download} Excel</button>
+        </div></div></div>
+      <div id="repStat" class="stat-row" style="margin-top:14px"></div>
+      <div class="card" style="margin-top:14px"><div class="card-head"><h3>${I.trend}<span class="lo">ສະຫຼຸບຍອດຂາຍຕາມຊ່ວງເວລາ</span></h3></div>
+        <div class="table-wrap"><table><thead><tr><th class="lo">ຊ່ວງເວລາ</th><th class="lo">ຈຳນວນບິນ</th><th class="lo">ຍອດຂາຍ</th><th class="lo">ກຳໄລໂດຍປະມານ</th></tr></thead><tbody id="repGroupBody"></tbody></table></div></div>
+      <div class="card" style="margin-top:14px"><div class="card-head"><h3>${I.receipt}<span class="lo">ລາຍລະອຽດບິນ</span></h3><span class="count lo" id="repDetailCount"></span></div>
+        <div class="table-wrap"><table><thead><tr><th class="lo">Runno</th><th class="lo">ວັນທີ</th><th class="lo">ພະນັກງານ</th><th class="lo">ລູກຄ້າ</th><th class="lo">ຍອດລວມ</th><th class="lo">ການຊຳລະ</th><th class="lo">ສະຖານະ</th></tr></thead><tbody id="repDetailBody"></tbody></table></div></div>`;
+      App.repFilter();
     },
 
     async credit(c){
@@ -1373,7 +1369,7 @@ const App = {
             <button class="btn btn-ico btn-ghost" onclick="App.editRepair('${r.id}')" title="ແກ້ໄຂ" style="color:var(--gold)">${I.edit}</button>
             <button class="btn btn-ico btn-ghost" onclick="App.delRow('repair','${r.id}')" title="ລຶບ" style="color:var(--danger)">${I.trash}</button>
           </div></td></tr>`
-      });
+      })+`<div class="card" style="margin-top:12px"><div style="padding:14px 18px;display:flex;justify-content:flex-end;gap:14px;align-items:center"><span class="lo muted">ລວມຄ່າສ້ອມທັງໝົດ (${data.length} ລາຍການ):</span><span style="font-weight:800;color:var(--brand-2);font-size:16px">${fmt(data.reduce(function(a,b){return a+(+b.cost||0);},0))} ${CONFIG.CURRENCY}</span></div></div>`;
     },
 
     async printjob(c){
@@ -1399,7 +1395,7 @@ const App = {
             <button class="btn btn-ico btn-ghost" onclick="App.editPrintJob('${r.id}')" title="ແກ້ໄຂ" style="color:var(--gold)">${I.edit}</button>
             <button class="btn btn-ico btn-ghost" onclick="App.delRow('printjob','${r.id}')" title="ລຶບ" style="color:var(--danger)">${I.trash}</button>
           </div></td></tr>`
-      });
+      })+`<div class="card" style="margin-top:12px"><div style="padding:14px 18px;display:flex;justify-content:flex-end;gap:14px;align-items:center"><span class="lo muted">ລວມລາຄາທັງໝົດ (${data.length} ລາຍການ):</span><span style="font-weight:800;color:var(--brand-2);font-size:16px">${fmt(data.reduce(function(a,b){return a+(+b.price||0);},0))} ${CONFIG.CURRENCY}</span></div></div>`;
     },
 
     placeholder(c){
@@ -2438,6 +2434,23 @@ const App = {
 
   /* ---------- CREDIT MODULE ---------- */
   _daysBetween(d){ try{ return Math.max(0,Math.round((Date.now()-new Date(String(d).slice(0,10)).getTime())/86400000)); }catch(e){ return 0; } },
+  repFilter(){
+    const gv=function(id){ var el=document.getElementById(id); return el?el.value:''; };
+    const from=gv('repFrom'), to=gv('repTo'); const group=gv('repGroup')||'day';
+    if(from)this.state.repFrom=from; if(to)this.state.repTo=to; this.state.repGroup=group;
+    var rows=(this.state.data.sales||[]).filter(function(s){ var d=String(s.date||'').slice(0,10); return (!from||d>=from)&&(!to||d<=to); });
+    var total=rows.reduce(function(a,b){return a+(+b.total||0);},0);
+    var profit=Math.round(total*0.12);
+    var st=document.getElementById('repStat'); if(st) st.innerHTML='<div class="stat-card"><div class="s-top"><span class="s-lbl">ຍອດຂາຍ (ຊ່ວງທີ່ເລືອກ)</span><div class="s-ico" style="background:var(--brand-soft);color:var(--brand-2)">'+I.money+'</div></div><div class="s-val">'+fmt(total)+' <small>'+CONFIG.CURRENCY+'</small></div></div><div class="stat-card"><div class="s-top"><span class="s-lbl">ຈຳນວນບິນ</span><div class="s-ico" style="background:#e7f0fe;color:#1f63d6">'+I.receipt+'</div></div><div class="s-val">'+rows.length+'</div></div><div class="stat-card"><div class="s-top"><span class="s-lbl">ກຳໄລໂດຍປະມານ</span><div class="s-ico" style="background:#fdf1dc;color:#a9781a">'+I.trend+'</div></div><div class="s-val">'+fmt(profit)+' <small>'+CONFIG.CURRENCY+'</small></div></div>';
+    var keyOf=function(d){ d=String(d||'').slice(0,10); if(group==='year')return d.slice(0,4); if(group==='month')return d.slice(0,7); return d; };
+    var g={}; rows.forEach(function(s){ var k=keyOf(s.date); if(!g[k])g[k]={n:0,t:0}; g[k].n++; g[k].t+=(+s.total||0); });
+    var keys=Object.keys(g).sort().reverse();
+    var gb=document.getElementById('repGroupBody');
+    if(gb) gb.innerHTML=keys.length? keys.map(function(k){return '<tr><td class="lo" style="font-weight:600">'+esc(k)+'</td><td class="num">'+g[k].n+'</td><td class="num" style="font-weight:700">'+fmt(g[k].t)+'</td><td class="num muted">'+fmt(Math.round(g[k].t*0.12))+'</td></tr>';}).join('')+'<tr style="font-weight:800;background:var(--surface-2)"><td class="lo">ລວມ</td><td class="num">'+rows.length+'</td><td class="num">'+fmt(total)+' '+CONFIG.CURRENCY+'</td><td class="num">'+fmt(profit)+'</td></tr>' : '<tr><td colspan="4"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີຂໍ້ມູນໃນຊ່ວງນີ້</div></div></td></tr>';
+    var db=document.getElementById('repDetailBody');
+    if(db) db.innerHTML=rows.length? rows.map(function(s){return '<tr><td class="num" style="font-weight:700">'+esc(s.runno)+'</td><td class="num muted">'+esc(String(s.date).slice(0,16))+'</td><td class="lo">'+esc(s.cashier)+'</td><td class="lo">'+(esc(s.customer)||'-')+'</td><td class="num" style="font-weight:700">'+fmt(s.total)+' '+esc(s.currency||CONFIG.CURRENCY)+'</td><td><span class="pill pill-blue">'+esc(s.paytype)+'</span></td><td><span class="pill '+(((+s.total)-(+s.paid))>0?'pill-amber':'pill-green')+'">'+esc(s.status)+'</span></td></tr>';}).join('') : '<tr><td colspan="7"><div class="empty">'+I.inbox+'<div class="lo">ບໍ່ມີບິນ</div></div></td></tr>';
+    var dc=document.getElementById('repDetailCount'); if(dc)dc.textContent=rows.length+' ບິນ';
+  },
   crFilter(){
     const q=((document.getElementById('crQ')||{}).value||'').toLowerCase();
     const from=(document.getElementById('crFrom')||{}).value||''; const to=(document.getElementById('crTo')||{}).value||'';
@@ -2852,6 +2865,7 @@ const App = {
       {k:'condition',l:'ສະພາບເຄື່ອງ',v:r.condition,full:1},
       {k:'symptom',l:'ອາການເສຍ',v:r.symptom,t:'textarea',full:1},
       {k:'accessories',l:'ອຸປະກອນທີ່ນຳມາດ້ວຍ',v:r.accessories,full:1},
+      {k:'image',l:'ຮູບເຄື່ອງ / ຫຼັກຖານ',v:r.image,t:'image',full:1},
       {k:'cost',l:'ປະເມີນຄ່າສ້ອມແປງ',v:r.cost,t:'number'},
       {k:'recorded',l:'ວັນທີຮັບເຄື່ອງ',v:fmtDate(r.recorded)||new Date().toISOString().slice(0,10),t:'date'},
       {k:'duedate',l:'ວັນນັດຮັບສິນຄ້າ',v:fmtDate(r.duedate)||new Date(Date.now()+7*864e5).toISOString().slice(0,10),t:'date'},
@@ -2888,6 +2902,16 @@ const App = {
     const imgSt = slip ? 'width:100%;height:auto;object-fit:contain' : 'width:2.5cm;height:2.5cm;object-fit:contain';
     return '<div style="margin-top:14px;border-top:1px dashed #999;padding-top:10px"><div class="center bold" style="font-size:12px;margin-bottom:8px">ສະແກນ QR ເພື່ອຊຳລະເງິນ</div><div style="'+wrap+'">'+qs.map(function(q){return '<div style="'+item+'"><img src="'+esc(q.img)+'" style="'+imgSt+'"><div style="margin-top:2px">'+esc(q.name||'')+'</div></div>';}).join('')+'</div></div>';
   },
+  _imgResize(file,cb){ var r=new FileReader(); r.onload=function(e){ var img=new Image(); img.onload=function(){ var max=320; var w=img.width,h=img.height; if(w>h&&w>max){h=Math.round(h*max/w);w=max;}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max;} var cv=document.createElement('canvas'); cv.width=w;cv.height=h; try{ cv.getContext('2d').drawImage(img,0,0,w,h); cb(cv.toDataURL('image/jpeg',0.5)); }catch(_){ cb(e.target.result); } }; img.onerror=function(){ cb(e.target.result); }; img.src=e.target.result; }; r.readAsDataURL(file); },
+  _imgToField(input,k){ var fl=input.files&&input.files[0]; if(!fl)return; App._imgResize(fl,function(b64){ var hd=document.querySelector('#formModal [data-k="'+k+'"]'); if(hd)hd.value=b64; var p=document.getElementById('imgprev_'+k); if(p){p.style.backgroundImage='url('+b64+')';p.textContent='';} toast('ໂຫຼດຮູບແລ້ວ','ok'); }); },
+  _imgClear(k){ var hd=document.querySelector('#formModal [data-k="'+k+'"]'); if(hd)hd.value=''; var p=document.getElementById('imgprev_'+k); if(p){p.style.backgroundImage='';p.textContent='ບໍ່ມີຮູບ';} },
+  _ensurePrintNo(table,r){
+    if(r.printno) return;
+    var seq=(+localStorage_get('ksv-printseq','0'))||0; seq++; localStorage_set('ksv-printseq',String(seq));
+    r.printno='KSV'+String(seq).padStart(5,'0');
+    r.printdate=new Date().toISOString().slice(0,10);
+    try{ Store.update(table,{id:r.id,printno:r.printno,printdate:r.printdate}); }catch(e){}
+  },
   _printHTML(html){
     const pa=document.getElementById('printArea'); pa.innerHTML=html;
     const imgs=[...pa.querySelectorAll('img')];
@@ -2911,9 +2935,8 @@ const App = {
     if(size!=='slip'){
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
       html=`<div class="rc ${size}">
-        <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td></tr></table>
-        <div class="center bold" style="font-size:22px;margin-bottom:4px">ໃບຮັບສ້ອມແປງ</div>
-        <div class="center" style="margin-bottom:10px">ເລກທີ: <b>${esc(r.runno||r.id)}</b></div>
+        <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td><td class="right" style="vertical-align:top;font-size:13px">ເລກທີ: <b>${esc(r.printno||r.runno||r.id)}</b><br>ວັນທີ: ${fmtDate(r.printdate)||fmtDate(r.recorded)||''}</td></tr></table>
+        <div class="center bold" style="font-size:22px;margin-bottom:10px">ໃບຮັບສ້ອມແປງ</div>
         <table style="margin-bottom:8px"><tr>
           <td style="border:1px solid #000;padding:8px;width:50%">ລູກຄ້າ: ${esc(r.name)||'-'}<br>ເບີໂທ: ${esc(r.phone)||'-'}<br>ທີ່ຢູ່: ${esc(r.address)||'-'}</td>
           <td style="border:1px solid #000;padding:8px">ວັນທີຮັບເຄື່ອງ: ${fmtDate(r.recorded)||'-'}<br>ວັນນັດຮັບ: ${fmtDate(r.duedate)||'-'}<br>ສະຖານະ: ${esc(r.status)||'-'}</td></tr></table>
@@ -2922,6 +2945,7 @@ const App = {
           <b>ອາການເສຍ:</b> ${esc(r.symptom)||'-'}<br>
           <b>ສະພາບເຄື່ອງ:</b> ${esc(r.condition)||'-'}<br>
           <b>ອຸປະກອນທີ່ນຳມາ:</b> ${esc(r.accessories)||'-'}</td></tr></table>
+        ${r.image?`<table style="margin-bottom:8px"><tr><td style="border:1px solid #000;padding:8px;text-align:center"><div style="font-size:12px;margin-bottom:4px"><b>ຮູບຫຼັກຖານ</b></div><img src="${esc(r.image)}" style="max-width:70mm;max-height:70mm;object-fit:contain"></td></tr></table>`:''}
         <table style="margin-bottom:8px"><tr><td class="right bold" style="border:1px solid #000;padding:10px;font-size:15px">ປະເມີນຄ່າສ້ອມ: ${fmt(r.cost)} ${CONFIG.CURRENCY}</td></tr></table>
         <table style="margin-top:30px;text-align:center"><tr><td>......................<br>ຜູ້ຮັບເຄື່ອງ</td><td>......................<br>ລູກຄ້າ</td></tr></table>
         <div class="center" style="font-size:12px;margin-top:10px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ · ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ **</div>
@@ -2959,7 +2983,7 @@ const App = {
     }
     return html;
   },
-  repairPrint(id,size){ const r=(App.state.data.repair||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; } closeModal(); this._printHTML(this._repairReceiptHtml(r,size)); },
+  repairPrint(id,size){ const r=(App.state.data.repair||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; } closeModal(); this._ensurePrintNo('repair',r); this._printHTML(this._repairReceiptHtml(r,size)); },
   viewRepair(id){
     const r=(App.state.data.repair||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; }
     modal(`<div class="modal-head"><h3 class="lo">${I.search} ເບິ່ງບິນສ້ອມແປງ ${esc(r.runno||'')}</h3>
@@ -2982,6 +3006,7 @@ const App = {
       {k:'orderdate',l:'ວັນທີສັ່ງ',v:fmtDate(p.orderdate)||today,t:'date'},
       {k:'pickupdate',l:'ວັນທີມາເອົາ',v:fmtDate(p.pickupdate)||today,t:'date'},
       {k:'content',l:'ເນື້ອໃນລາຍການ',v:p.content,t:'textarea',full:1},
+      {k:'image',l:'ຮູບປ້າຍ / ຫຼັກຖານ',v:p.image,t:'image',full:1},
       {k:'bgcolor',l:'ສີພື້ນຫຼັງ',v:p.bgcolor},
       {k:'textcolor',l:'ສີໂຕໜັງສື',v:p.textcolor},
       {k:'size',l:'ຂະໜາດ',v:p.size},
@@ -3006,9 +3031,8 @@ const App = {
     if(size!=='slip'){
       const logo=App.logo?`<img src="${esc(App.logo)}" style="width:60px;height:60px;border-radius:10px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">K</div>`;
       html=`<div class="rc ${size}">
-        <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td></tr></table>
-        <div class="center bold" style="font-size:22px;margin-bottom:4px">ໃບຮັບສິ່ງພິມ</div>
-        <div class="center" style="margin-bottom:10px">ເລກທີ: <b>${esc(r.runno||r.id)}</b></div>
+        <table style="margin-bottom:8px"><tr><td><div style="display:flex;gap:12px;align-items:center">${logo}<div><div class="bold" style="font-size:18px">${esc(CONFIG.STORE_NAME)}</div>${shopLines}</div></div></td><td class="right" style="vertical-align:top;font-size:13px">ເລກທີ: <b>${esc(r.printno||r.runno||r.id)}</b><br>ວັນທີ: ${fmtDate(r.printdate)||fmtDate(r.recorded)||''}</td></tr></table>
+        <div class="center bold" style="font-size:22px;margin-bottom:10px">ໃບຮັບສິ່ງພິມ</div>
         <table style="margin-bottom:8px"><tr>
           <td style="border:1px solid #000;padding:8px;width:50%">ລູກຄ້າ: ${esc(r.name)||'-'}<br>ເບີໂທ: ${esc(r.phone)||'-'}</td>
           <td style="border:1px solid #000;padding:8px">ວັນທີສັ່ງ: ${fmtDate(r.orderdate)||'-'}<br>ວັນທີມາເອົາ: ${fmtDate(r.pickupdate)||'-'}<br>ສະຖານະ: ${esc(r.status)||'-'}</td></tr></table>
@@ -3017,6 +3041,7 @@ const App = {
           <b>ສີພື້ນຫຼັງ:</b> ${esc(r.bgcolor)||'-'} · <b>ສີໂຕໜັງສື:</b> ${esc(r.textcolor)||'-'}<br>
           <b>ຂະໜາດ:</b> ${esc(r.size)||'-'}<br>
           <b>ໝາຍເຫດ:</b> ${esc(r.note)||'-'}</td></tr></table>
+        ${r.image?`<table style="margin-bottom:8px"><tr><td style="border:1px solid #000;padding:8px;text-align:center"><div style="font-size:12px;margin-bottom:4px"><b>ຮູບຫຼັກຖານ</b></div><img src="${esc(r.image)}" style="max-width:70mm;max-height:70mm;object-fit:contain"></td></tr></table>`:''}
         <table style="margin-bottom:8px"><tr><td class="right bold" style="border:1px solid #000;padding:10px;font-size:15px">ລາຄາ: ${fmt(r.price)} ${CONFIG.CURRENCY}</td></tr></table>
         <table style="margin-top:30px;text-align:center"><tr><td>......................<br>ຜູ້ຮັບອໍເດີ</td><td>......................<br>ລູກຄ້າ</td></tr></table>
         <div class="center" style="font-size:12px;margin-top:10px">** ກະລຸນານຳບິນນີ້ມາຮັບເຄື່ອງ · ຮັກສາໃບຮັບໄວ້ໃຫ້ດີ **</div>
@@ -3060,7 +3085,7 @@ const App = {
         <button class="btn lo" style="flex:1;min-width:120px;justify-content:center;padding:16px;background:#0e9f6e;color:#fff;border:none" onclick="App.printjobPrint('${id}','a5')">${I.printer} A5</button>
       </div>`);
   },
-  printjobPrint(id,size){ const r=(App.state.data.printjob||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; } closeModal(); this._printHTML(this._printjobReceiptHtml(r,size)); },
+  printjobPrint(id,size){ const r=(App.state.data.printjob||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; } closeModal(); this._ensurePrintNo('printjob',r); this._printHTML(this._printjobReceiptHtml(r,size)); },
   viewPrintJob(id){
     const r=(App.state.data.printjob||[]).find(x=>x.id===id); if(!r){ toast('ບໍ່ພົບລາຍການ','err'); return; }
     modal(`<div class="modal-head"><h3 class="lo">${I.search} ເບິ່ງບິນສິ່ງພິມ ${esc(r.runno||'')}</h3>
@@ -3117,7 +3142,7 @@ function formModal(name, fields, saveFn, wide){
   return `<div class="modal-head"><h3 class="lo">ຈັດການ${esc(name)}</h3><button class="icon-btn" style="margin-left:auto" onclick="closeModal()">${I.close}</button></div>
   <div class="modal-body" id="formModal"><div class="form-grid">
     ${fields.map(f=>`<div class="fg ${f.full?'full':''}"><label>${esc(f.l)}</label>
-      ${f.t==='textarea'?`<textarea data-k="${f.k}" rows="3">${esc(f.v)}</textarea>`:`<input class="inp" data-k="${f.k}" type="${f.t||'text'}" value="${esc(f.v)}">`}</div>`).join('')}
+      ${f.t==='image'?`<div id="imgprev_${f.k}" style="width:100%;max-width:220px;height:130px;border:1px dashed var(--line);border-radius:10px;background-size:cover;background-position:center;${f.v?`background-image:url(${f.v})`:''};display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px">${f.v?'':'ບໍ່ມີຮູບ'}</div><input type="hidden" data-k="${f.k}" value="${esc(f.v)}"><div style="display:flex;gap:8px;margin-top:6px"><label class="btn lo" style="cursor:pointer">${I.folder} ອັບຮູບ<input type="file" accept="image/*" style="display:none" onchange="App._imgToField(this,'${f.k}')"></label><button type="button" class="btn lo" onclick="App._imgClear('${f.k}')">ລຶບ</button></div>`:f.t==='textarea'?`<textarea data-k="${f.k}" rows="3">${esc(f.v)}</textarea>`:`<input class="inp" data-k="${f.k}" type="${f.t||'text'}" value="${esc(f.v)}">`}</div>`).join('')}
   </div></div>
   <div class="modal-foot"><button class="btn lo" onclick="closeModal()">ຍົກເລີກ</button>
     <button class="btn btn-primary lo" onclick="${saveFn}">${I.check} ບັນທຶກ</button></div>`;

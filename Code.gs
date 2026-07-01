@@ -39,10 +39,10 @@ var SCHEMA = {
   employees: ["id","name","position","phone","salary"],
   purchase:  ["id","no","ref","vendor","items","total","tax","note","date","recorded","imported"],
   vendors:   ["id","name","phone","address","note"],
-  repair:    ["id","runno","name","phone","address","product","brand","model","color","sn","condition","symptom","accessories","cost","duedate","status","recorded"],
+  repair:    ["id","runno","name","phone","address","product","brand","model","color","sn","condition","symptom","accessories","cost","duedate","status","recorded","image","printno","printdate"],
   pawn:      ["id","no","date","customer","item","amount","interest","status"],
   produce:   ["id","date","product","qty","note"],
-  printjob:  ["id","runno","name","phone","orderdate","pickupdate","content","bgcolor","textcolor","size","price","note","status","recorded"],
+  printjob:  ["id","runno","name","phone","orderdate","pickupdate","content","bgcolor","textcolor","size","price","note","status","recorded","image","printno","printdate"],
   settings:  ["id","storename","currency","phone","addr","acct","email","logo","qr","brand","bg"]
 };
 
